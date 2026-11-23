@@ -5,7 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="referrer" content="no-referrer" />
-    <title>point001 — one point for everything</title>
+    <script>
+      // OAuth Popup Response Handler
+      if (window.opener && (window.location.hash.includes("access_token=") || window.location.hash.includes("error="))) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+          const accessToken = hashParams.get("access_token");
+          const error = hashParams.get("error");
+          if (accessToken) {
+            window.opener.postMessage(
+              { type: "GOOGLE_OAUTH_TOKEN", accessToken },
+              window.location.origin
+            );
+          } else if (error) {
+            window.opener.postMessage(
+              { type: "GOOGLE_OAUTH_ERROR", error },
+              window.location.origin
+            );
+          }
+          window.close();
+        } catch (e) {
+          console.error("Failed to post message to opener", e);
+        }
+      }
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body class="bg-bg text-text antialiased">

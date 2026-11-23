@@ -210,6 +210,13 @@ export const SettingsPage: React.FC = () => {
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
+      if (event.data?.type === "GOOGLE_OAUTH_ERROR") {
+        window.removeEventListener("message", handleMessage);
+        setIsSyncing(false);
+        toast.error("Google authentication was canceled or denied");
+        return;
+      }
+
       if (event.data?.type === "GOOGLE_OAUTH_TOKEN") {
         window.removeEventListener("message", handleMessage);
         const { accessToken } = event.data;
