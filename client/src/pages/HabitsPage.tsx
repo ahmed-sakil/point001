@@ -580,23 +580,27 @@ export const HabitsPage: React.FC = () => {
             className="px-1"
           />
 
-          {/* Table Container - Exactly 7 Days Fit Perfectly with Smooth Slide Animation */}
-          <AnimatedSlideView slideKey={animKey} direction={slideDirection} className="border border-border rounded-md bg-surface overflow-x-auto select-none">
-            <table className="w-full border-collapse text-left table-fixed">
+          {/* Table Container - Exactly 7 Days with Independent Horizontal Scroll on Mobile */}
+          <AnimatedSlideView
+            slideKey={animKey}
+            direction={slideDirection}
+            className="border border-border rounded-md bg-surface overflow-x-auto select-none touch-pan-x overscroll-x-contain"
+          >
+            <table className="min-w-[504px] w-full border-collapse text-left table-fixed sm:min-w-full">
               <thead>
                 <tr className="border-b border-border bg-bg">
                   {/* Sticky First Column Header (Solid Opaque, z-40) */}
-                  <th className="sticky left-0 z-40 bg-bg px-4 py-3 w-[220px] min-w-[200px] border-r border-border text-xs font-mono font-medium text-text uppercase tracking-wider">
+                  <th className="sticky left-0 z-40 bg-bg px-3 sm:px-4 py-3 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none text-xs font-mono font-medium text-text uppercase tracking-wider">
                     Habit / Routine
                   </th>
 
-                  {/* Exactly 7 Day Columns (No vertical left/right border separators) */}
+                  {/* Exactly 7 Day Columns (Proper min-width on mobile, auto on desktop) */}
                   {datesWindow.map((d) => {
                     const isLocked = lockedDates.includes(d.dateStr);
                     return (
                       <th
                         key={d.dateStr}
-                        className={`px-2 py-3 text-center transition-colors ${
+                        className={`w-[52px] min-w-[52px] sm:w-auto sm:min-w-0 px-1 sm:px-2 py-3 text-center transition-colors ${
                           d.isToday
                             ? "bg-text/10 text-text font-bold"
                             : "text-text-muted font-normal"
@@ -626,7 +630,7 @@ export const HabitsPage: React.FC = () => {
                 {/* SECTION 1: FOREVER HABITS                          */}
                 {/* -------------------------------------------------- */}
                 <tr className="bg-bg">
-                  <td className="sticky left-0 z-30 bg-bg px-4 py-2.5 w-[220px] min-w-[200px] text-[11px] font-mono tracking-wider text-text uppercase font-semibold border-r border-border">
+                  <td className="sticky left-0 z-30 bg-bg px-3 sm:px-4 py-2.5 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none text-[11px] font-mono tracking-wider text-text uppercase font-semibold border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none">
                     Forever habits
                   </td>
                   <td colSpan={7} className="bg-bg"></td>
@@ -638,7 +642,7 @@ export const HabitsPage: React.FC = () => {
                   return (
                     <tr key={prayer.key} className="hover:bg-bg/40 transition-colors group">
                       {/* Fixed First Column: Namaj Name + Namaj Time Below */}
-                      <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-4 py-2 w-[220px] min-w-[200px] border-r border-border">
+                      <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-3 sm:px-4 py-2 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-xs font-medium text-text leading-tight">{prayer.name}</div>
@@ -659,7 +663,7 @@ export const HabitsPage: React.FC = () => {
                         return (
                           <td
                             key={d.dateStr}
-                            className={`p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
+                            className={`w-[52px] min-w-[52px] sm:w-auto sm:min-w-0 p-1.5 sm:p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
                           >
                             <div key={`${d.dateStr}-${animKey}`} className={animClass}>
                               <button
@@ -700,7 +704,7 @@ export const HabitsPage: React.FC = () => {
                     return (
                       <tr key={habit.id} className="hover:bg-bg/40 transition-colors group">
                         {/* Fixed First Column: Habit Name + Optional Time (No Icon) */}
-                        <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-4 py-2.5 w-[220px] min-w-[200px] border-r border-border">
+                        <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-3 sm:px-4 py-2.5 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none">
                           <div className="flex items-center justify-between">
                             <div className="min-w-0 pr-1">
                               <div className="text-xs font-medium text-text truncate" title={habit.name}>
@@ -736,7 +740,7 @@ export const HabitsPage: React.FC = () => {
                           return (
                             <td
                               key={d.dateStr}
-                              className={`p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
+                              className={`w-[52px] min-w-[52px] sm:w-auto sm:min-w-0 p-1.5 sm:p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
                             >
                               <div key={`${d.dateStr}-${animKey}`} className={animClass}>
                                 {!isCreated ? (
@@ -779,7 +783,7 @@ export const HabitsPage: React.FC = () => {
                 {/* SECTION 2: TARGET CHALLENGES                       */}
                 {/* -------------------------------------------------- */}
                 <tr className="bg-bg">
-                  <td className="sticky left-0 z-30 bg-bg px-4 py-2.5 w-[220px] min-w-[200px] text-[11px] font-mono tracking-wider text-text uppercase font-semibold border-r border-border">
+                  <td className="sticky left-0 z-30 bg-bg px-3 sm:px-4 py-2.5 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none text-[11px] font-mono tracking-wider text-text uppercase font-semibold border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none">
                     Target challenges
                   </td>
                   <td colSpan={7} className="bg-bg"></td>
@@ -806,7 +810,7 @@ export const HabitsPage: React.FC = () => {
                     return (
                       <tr key={challenge.id} className="hover:bg-bg/40 transition-colors group">
                         {/* Fixed First Column: Challenge Name (NO ICON) + Progress + Optional Time */}
-                        <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-4 py-2.5 w-[220px] min-w-[200px] border-r border-border">
+                        <td className="sticky left-0 z-30 bg-surface group-hover:bg-surface-hover px-3 sm:px-4 py-2.5 w-[140px] min-w-[140px] max-w-[140px] sm:w-[220px] sm:min-w-[200px] sm:max-w-none border-r border-border shadow-[4px_0_10px_-3px_rgba(0,0,0,0.35)] sm:shadow-none">
                           <div className="flex items-center justify-between">
                             <div className="min-w-0 pr-1 flex-1">
                               {/* Habit Name without icon */}
@@ -857,7 +861,7 @@ export const HabitsPage: React.FC = () => {
                           return (
                             <td
                               key={d.dateStr}
-                              className={`p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
+                              className={`w-[52px] min-w-[52px] sm:w-auto sm:min-w-0 p-1.5 sm:p-2 text-center ${d.isToday ? "bg-text/5" : ""}`}
                             >
                               <div key={`${d.dateStr}-${animKey}`} className={animClass}>
                                 {!isCreated || isPastEnd ? (
