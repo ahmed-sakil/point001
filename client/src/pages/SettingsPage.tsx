@@ -205,59 +205,102 @@ export const SettingsPage: React.FC = () => {
       return;
     }
 
+    localStorage.removeItem("google_oauth_token");
+    localStorage.removeItem("google_oauth_error");
     setIsSyncing(true);
 
-    const handleMessage = async (event: MessageEvent) => {
+    let timer: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("storage", handleStorage);
+    };
+
+    const processToken = async (accessToken: string) => {
+      cleanup();
+      try {
+        const syncRes = await api.post<{
+          message?: string;
+          user?: { name?: string; avatarUrl?: string; email?: string };
+          profile?: { name?: string; avatarUrl?: string; email?: string };
+          contactsSynced?: number;
+          syncedContactsCount?: number;
+        }>("/settings/google/sync", {
+          accessToken,
+          googleApiKey: accessToken,
+          clientId: googleClientId,
+          googleClientId,
+        });
+
+        const userObj = syncRes.user || syncRes.profile || {};
+        if (userObj.name || userObj.avatarUrl) {
+          updateUser({
+            name: userObj.name,
+            avatarUrl: userObj.avatarUrl,
+          });
+          if (userObj.name) setName(userObj.name);
+          if (userObj.avatarUrl) setAvatarUrl(userObj.avatarUrl);
+        }
+
+        setLastSyncAt(new Date().toISOString());
+        const count = syncRes.contactsSynced ?? syncRes.syncedContactsCount ?? 0;
+        toast.success(
+          syncRes.message || `Connected! Synced profile and ${count} Google Contacts.`
+        );
+      } catch (err: any) {
+        toast.error(err?.response?.data?.error || "Google synchronization failed");
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
       if (event.data?.type === "GOOGLE_OAUTH_ERROR") {
-        window.removeEventListener("message", handleMessage);
+        cleanup();
         setIsSyncing(false);
         toast.error("Google authentication was canceled or denied");
         return;
       }
 
-      if (event.data?.type === "GOOGLE_OAUTH_TOKEN") {
-        window.removeEventListener("message", handleMessage);
-        const { accessToken } = event.data;
+      if (event.data?.type === "GOOGLE_OAUTH_TOKEN" && event.data?.accessToken) {
+        processToken(event.data.accessToken);
+      }
+    };
 
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "google_oauth_token" && event.newValue) {
         try {
-          const syncRes = await api.post<{
-            message: string;
-            user: { name: string; avatarUrl: string; email: string };
-            contactsSynced: number;
-          }>("/settings/google/sync", {
-            accessToken,
-            clientId: googleClientId,
-          });
-
-          updateUser({
-            name: syncRes.user.name,
-            avatarUrl: syncRes.user.avatarUrl,
-          });
-
-          setName(syncRes.user.name || "");
-          setAvatarUrl(syncRes.user.avatarUrl || "");
-          setLastSyncAt(new Date().toISOString());
-
-          toast.success(
-            `Connected! Synced profile and ${syncRes.contactsSynced} Google Contacts.`
-          );
-        } catch (err: any) {
-          toast.error(err?.response?.data?.error || "Google synchronization failed");
-        } finally {
-          setIsSyncing(false);
-        }
+          const parsed = JSON.parse(event.newValue);
+          if (parsed.accessToken) {
+            localStorage.removeItem("google_oauth_token");
+            processToken(parsed.accessToken);
+          }
+        } catch {}
+      } else if (event.key === "google_oauth_error" && event.newValue) {
+        cleanup();
+        localStorage.removeItem("google_oauth_error");
+        setIsSyncing(false);
+        toast.error("Google authentication was canceled or denied");
       }
     };
 
     window.addEventListener("message", handleMessage);
+    window.addEventListener("storage", handleStorage);
 
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        window.removeEventListener("message", handleMessage);
-        setIsSyncing(false);
+    timer = setInterval(() => {
+      try {
+        if (!popup || popup.closed) {
+          cleanup();
+          setIsSyncing(false);
+        }
+      } catch {
+        // Cross-Origin-Opener-Policy can throw or warn when querying popup.closed across origins.
       }
     }, 1000);
   };

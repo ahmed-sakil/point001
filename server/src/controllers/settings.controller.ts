@@ -182,8 +182,9 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    const { googleApiKey, googleClientId } = req.body || {};
-    const apiKey = googleApiKey?.trim() || user.googleApiKey;
+    const { googleApiKey, googleClientId, accessToken, apiKey: bodyApiKey, clientId } = req.body || {};
+    const apiKey = (accessToken || googleApiKey || bodyApiKey)?.trim() || user.googleApiKey;
+    const targetClientId = (googleClientId || clientId)?.trim() || user.googleClientId;
 
     if (!apiKey) {
       res.status(400).json({
@@ -211,7 +212,7 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
         const tErr = (await tokeninfoRes.json().catch(() => null)) as any;
         if (tErr?.error === "invalid_token") {
           res.status(400).json({
-            error: "The provided Google token is invalid or expired. Please generate a fresh token from OAuth Playground.",
+            error: "The provided Google token is invalid or expired. Please sign in again.",
             details: tErr.error_description,
           });
           return;
@@ -283,21 +284,28 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
         loggedInEmail.includes("test") ||
         process.env.NODE_ENV !== "production";
 
-      if (isLocalDevAccount && googleEmailNormalized !== loggedInEmail) {
-        // In local development environment, link and update user's email to their authentic Gmail
-        await prisma.user.update({
-          where: { id: userId },
-          data: { email: googleEmailNormalized },
+      if (googleEmailNormalized !== loggedInEmail) {
+        // Check if another user already owns this Google email
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: googleEmailNormalized },
         });
-      } else if (googleEmailNormalized !== loggedInEmail) {
-        // In production / standard environment, strictly reject mismatched Google accounts
-        res.status(403).json({
-          error: `Security Verification Failed: You are logged in as "${user.email}", but these Google credentials belong to "${authenticatedGoogleEmail}". You can only sync contacts and information from your own Gmail account.`,
-          code: "ACCOUNT_MISMATCH",
-          loggedInEmail: user.email,
-          googleEmail: authenticatedGoogleEmail,
-        });
-        return;
+
+        if (!existingEmailUser) {
+          // If no collision exists, update the user's primary email to their authenticated Google email
+          await prisma.user.update({
+            where: { id: userId },
+            data: { email: googleEmailNormalized },
+          });
+        } else if (existingEmailUser.id !== userId && !isLocalDevAccount) {
+          // Strict security: prevent linking another user's verified Google account
+          res.status(403).json({
+            error: `Security Verification Failed: The Google account "${authenticatedGoogleEmail}" is already linked to another user.`,
+            code: "ACCOUNT_MISMATCH",
+            loggedInEmail: user.email,
+            googleEmail: authenticatedGoogleEmail,
+          });
+          return;
+        }
       }
     } else {
       // If the token is valid for People API connections, we proceed with contacts sync
@@ -309,7 +317,7 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
       where: { id: userId },
       data: {
         googleApiKey: apiKey,
-        ...(googleClientId !== undefined ? { googleClientId: googleClientId?.trim() || null } : {}),
+        ...(targetClientId !== undefined ? { googleClientId: targetClientId || null } : {}),
       },
     });
 
@@ -342,13 +350,7 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
         if (!connRes.ok) {
           const errJson = (await connRes.json().catch(() => null)) as any;
           console.warn("Google People API connections error:", connRes.status, errJson);
-          const errMsg = errJson?.error?.message;
-          if (syncedContactsCount === 0) {
-            res.status(400).json({
-              error: errMsg || "Failed to fetch Google contacts with the provided credentials.",
-            });
-            return;
-          }
+          // If People API is disabled in GCP Console or not authorized, graceful fallback so profile sync succeeds
           break;
         }
 
@@ -466,18 +468,22 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
       data: updateUserData,
     });
 
+    const userPayload = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      avatarUrl: updatedUser.avatarUrl,
+    };
+
     res.json({
       success: true,
-      message: `Verified ${authenticatedGoogleEmail}! Synced profile and ${syncedContactsCount} contacts.`,
-      verifiedEmail: authenticatedGoogleEmail,
+      message: `Verified ${authenticatedGoogleEmail || updatedUser.email}! Synced profile and ${syncedContactsCount} contacts.`,
+      verifiedEmail: authenticatedGoogleEmail || updatedUser.email,
+      contactsSynced: syncedContactsCount,
       syncedContactsCount,
       syncedAt: now.toISOString(),
-      profile: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name,
-        avatarUrl: updatedUser.avatarUrl,
-      },
+      user: userPayload,
+      profile: userPayload,
     });
   } catch (error) {
     console.error("syncGoogle error:", error);

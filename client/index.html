@@ -7,21 +7,31 @@
     <meta name="referrer" content="no-referrer" />
     <script>
       // OAuth Popup Response Handler
-      if (window.opener && (window.location.hash.includes("access_token=") || window.location.hash.includes("error="))) {
+      if (window.location.hash.includes("access_token=") || window.location.hash.includes("error=")) {
         try {
           const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
           const accessToken = hashParams.get("access_token");
           const error = hashParams.get("error");
           if (accessToken) {
-            window.opener.postMessage(
-              { type: "GOOGLE_OAUTH_TOKEN", accessToken },
-              window.location.origin
-            );
+            try {
+              localStorage.setItem("google_oauth_token", JSON.stringify({ accessToken, time: Date.now() }));
+            } catch (_) {}
+            if (window.opener) {
+              window.opener.postMessage(
+                { type: "GOOGLE_OAUTH_TOKEN", accessToken },
+                window.location.origin
+              );
+            }
           } else if (error) {
-            window.opener.postMessage(
-              { type: "GOOGLE_OAUTH_ERROR", error },
-              window.location.origin
-            );
+            try {
+              localStorage.setItem("google_oauth_error", JSON.stringify({ error, time: Date.now() }));
+            } catch (_) {}
+            if (window.opener) {
+              window.opener.postMessage(
+                { type: "GOOGLE_OAUTH_ERROR", error },
+                window.location.origin
+              );
+            }
           }
           window.close();
         } catch (e) {
