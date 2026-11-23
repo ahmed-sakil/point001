@@ -1,0 +1,45 @@
+{
+  "name": "point001-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend API for point001",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "prisma generate && tsc && node -e \"console.log('\\x1b[32m✔ point001 Server: TypeScript compiled successfully\\x1b[0m')\"",
+    "build:render": "prisma generate && prisma migrate deploy && tsc && node -e \"console.log('\\x1b[32m✔ point001 Server: Migrations applied & production bundle compiled\\x1b[0m')\"",
+    "start": "node dist/index.js",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "imapflow": "^2.12.2",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.15.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^22.13.4",
+    "prisma": "6.19.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

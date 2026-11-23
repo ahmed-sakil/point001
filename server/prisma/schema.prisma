@@ -1,0 +1,515 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  passwordHash          String
+  name                  String?
+  avatarUrl             String?
+  googleApiKey          String?
+  googleClientId        String?
+  googleContactsSyncAt  DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  accounts              OAuthAccount[]
+  tasks                 Task[]
+  events                CalendarEvent[]
+  contacts              Contact[]
+  habits                Habit[]
+  subscriptions         Subscription[]
+  financialAccounts     FinancialAccount[]
+  financialTransactions FinancialTransaction[]
+  debtRecords           DebtRecord[]
+  monthlyCommitments    MonthlyCommitment[]
+  savingsGoals          SavingsGoal[]
+  expectedInflows       ExpectedInflow[]
+  dayLocks              CalendarDayLock[]
+  prayerLogs            PrayerLog[]
+  prayerSettings        PrayerSettings?
+  emailAccounts         EmailAccount[]
+  clipboardNotes        ClipboardNote[]
+}
+
+model OAuthAccount {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String   // e.g. "google"
+  providerAccountId String
+  accessToken       String   @db.Text
+  refreshToken      String?  @db.Text
+  expiresAt         Int?
+  scope             String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  description String?   @db.Text
+  isCompleted Boolean   @default(false)
+  dueDate     DateTime? @db.Date
+  dueTime     String?   // HH:mm format
+  endDate     DateTime? @db.Date
+  endTime     String?   // HH:mm format
+  priority    Priority  @default(MEDIUM)
+  tags        String[]  @default([])
+  subtasks    Json?     // [{ id: string, title: string, done: boolean }]
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dueDate])
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model CalendarEvent {
+  id                String         @id @default(uuid())
+  userId            String
+  title             String
+  description       String?        @db.Text
+  startDate         DateTime
+  endDate           DateTime
+  isAllDay          Boolean        @default(false)
+  recurrenceRule    String?        // Standard iCal RRULE (e.g. "FREQ=YEARLY", "FREQ=WEEKLY;BYDAY=MO,WE")
+  recurrenceType    RecurrenceType @default(NONE)
+  recurrenceEndDate DateTime?      @db.Date // End of recurrence series (e.g. ends on 2030-08-12)
+  eventType         EventType      @default(STANDARD)
+  color             String?        @default("#3b82f6")
+  location          String?
+  externalId        String?        // Google Calendar Event ID
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate])
+}
+
+enum EventType {
+  STANDARD
+  BIRTHDAY
+  ANNIVERSARY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RecurrenceType {
+  NONE
+  WEEKLY
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+model CalendarDayLock {
+  id             String   @id @default(uuid())
+  userId         String
+  date           DateTime @db.Date
+  isLocked       Boolean  @default(true)
+  eventsSnapshot Json     // Point-in-time array of CalendarEventOccurrence
+  tasksSnapshot  Json     // Point-in-time array of Task
+  habitsSnapshot Json?    // Point-in-time array of Habit check-ins
+  notes          String?  @db.Text
+  lockedAt       DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model Contact {
+  id                 String    @id @default(uuid())
+  userId             String
+  googleResourceName String?   // e.g., "people/c123456"
+  etag               String?   // Google People API etag
+  displayName        String
+  avatarUrl          String?
+  company            String?
+  jobTitle           String?
+  email              String?
+  phoneNumber        String?
+  phoneNumbers       Json?     // Array of { value: string, label?: string, isPrimary?: boolean }
+  emails             Json?     // Array of { value: string, label?: string, isPrimary?: boolean }
+  addresses          Json?     // Array of { formatted: string, label?: string }
+  birthday           DateTime? @db.Date
+  notes              String?   @db.Text
+  tags               String[]  @default([])
+  isStarred          Boolean   @default(false)
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isStarred])
+  @@index([userId, displayName])
+}
+
+model Habit {
+  id          String     @id @default(uuid())
+  userId      String
+  name        String
+  description String?    @db.Text
+  timeOfDay   String     @default("ANYTIME") // MORNING, AFTERNOON, EVENING, NIGHT, ANYTIME
+  type        String     @default("EVERGREEN") // EVERGREEN, TIME_BOUND
+  startDate   DateTime?  @db.Date
+  endDate     DateTime?  @db.Date
+  targetDays  Int?       // Total target days for challenge
+  isArchived  Boolean    @default(false)
+  frequency   String     @default("DAILY") // DAILY, WEEKDAYS, WEEKLY
+  time        String?    // e.g. "07:00 AM" (optional custom time)
+  isCompleted Boolean    @default(false) // whether target challenge is completed
+  logs        HabitLog[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, isArchived])
+}
+
+model HabitLog {
+  id      String   @id @default(uuid())
+  habitId String
+  date    DateTime @db.Date
+  status  Boolean  @default(true)
+  habit   Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+model PrayerLog {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime @db.Date
+  fajr      Boolean  @default(false)
+  dhuhr     Boolean  @default(false)
+  asr       Boolean  @default(false)
+  maghrib   Boolean  @default(false)
+  isha      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model PrayerSettings {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  fajr      String   @default("04:58 AM")
+  dhuhr     String   @default("11:47 AM")
+  asr       String   @default("03:36 PM")
+  maghrib   String   @default("05:12 PM")
+  isha      String   @default("06:31 PM")
+  latitude  Float?
+  longitude Float?
+  city      String?
+  country   String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id           String   @id @default(uuid())
+  userId       String
+  serviceName  String   // "Netflix", "GitHub", "Gym"
+  amount       Decimal  @db.Decimal(10, 2)
+  currency     String   @default("USD")
+  billingCycle String   // "MONTHLY", "YEARLY"
+  nextRenewal  DateTime @db.Date
+  category     String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum FinancialAccountType {
+  CASH
+  BKASH
+  NAGAD
+  ROCKET
+  BANK
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum DebtType {
+  I_OWE   // Dena (Payable)
+  OWES_ME // Paona (Receivable)
+}
+
+enum DebtStatus {
+  PENDING
+  PARTIAL
+  SETTLED
+}
+
+model FinancialAccount {
+  id            String               @id @default(uuid())
+  userId        String
+  name          String               // e.g. "Cash in Hand", "bKash Personal", "Brac Bank"
+  accountType   FinancialAccountType @default(CASH)
+  accountNumber String?              // e.g. "017...", "150..."
+  balance       Decimal              @default(0.00) @db.Decimal(12, 2)
+  color         String?              @default("#10b981")
+  isDefault     Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  transactionsFrom FinancialTransaction[] @relation("FromAccount")
+  transactionsTo   FinancialTransaction[] @relation("ToAccount")
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FinancialTransaction {
+  id              String          @id @default(uuid())
+  userId          String
+  type            TransactionType
+  amount          Decimal         @db.Decimal(12, 2)
+  fee             Decimal?        @default(0.00) @db.Decimal(10, 2)
+  fromAccountId   String?
+  toAccountId     String?
+  category        String          // "Food", "Rent", "Family", "Mess", "Tech", "Salary", "Debt", etc.
+  date            DateTime        @db.Date
+  notes           String?
+  linkedDebtId    String?
+  linkedMonthlyId String?
+  linkedGoalId    String?
+  createdAt       DateTime        @default(now())
+
+  fromAccount     FinancialAccount? @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount       FinancialAccount? @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+}
+
+model DebtRecord {
+  id            String           @id @default(uuid())
+  userId        String
+  type          DebtType         // I_OWE or OWES_ME
+  personName    String           // e.g. "Karim", "Rahim", "Bank Loan"
+  contactId     String?
+  contactNumber String?
+  totalAmount   Decimal          @db.Decimal(12, 2)
+  paidAmount    Decimal          @default(0.00) @db.Decimal(12, 2)
+  dueDate       DateTime?        @db.Date
+  status        DebtStatus       @default(PENDING)
+  notes         String?
+  paymentLogs   DebtPaymentLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DebtPaymentLog {
+  id        String     @id @default(uuid())
+  debtId    String
+  amount    Decimal    @db.Decimal(12, 2)
+  date      DateTime   @db.Date
+  accountId String?
+  notes     String?
+  createdAt DateTime   @default(now())
+
+  debt      DebtRecord @relation(fields: [debtId], references: [id], onDelete: Cascade)
+
+  @@index([debtId])
+}
+
+model MonthlyCommitment {
+  id               String               @id @default(uuid())
+  userId           String
+  title            String               // "Home Rent", "Mess Charge", "Parents", "Wifi"
+  amount           Decimal              @db.Decimal(12, 2)
+  dueDayOfMonth    Int                  // 1 - 31 (e.g. 3 for 3rd of every month)
+  startDate        DateTime             @default(now()) @db.Date // e.g. 2027-01-01
+  endDate          DateTime?            @db.Date // e.g. 2027-12-31
+  category         String               // "Housing", "Family", "Utility", "Food", "Other"
+  defaultAccountId String?
+  lastPaidMonth    String?              // "YYYY-MM"
+  notes            String?
+  isActive         Boolean              @default(true)
+  payments         MonthlyCostPayment[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
+model MonthlyCostPayment {
+  id                String            @id @default(uuid())
+  commitmentId      String
+  monthYear         String            // "YYYY-MM", e.g. "2026-11"
+  isPaid            Boolean           @default(true)
+  paidDate          DateTime?         @db.Date
+  amountPaid        Decimal           @db.Decimal(12, 2)
+  paidFromAccountId String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+
+  commitment        MonthlyCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+
+  @@unique([commitmentId, monthYear])
+  @@index([commitmentId])
+}
+
+model SavingsGoal {
+  id            String            @id @default(uuid())
+  userId        String
+  title         String            // "PlayStation 5", "Emergency Fund"
+  targetAmount  Decimal           @db.Decimal(12, 2)
+  currentAmount Decimal           @default(0.00) @db.Decimal(12, 2)
+  monthlyAmount Decimal           @default(0.00) @db.Decimal(12, 2)
+  targetDate    DateTime?         @db.Date
+  color         String?           @default("#f4f4f6")
+  isCompleted   Boolean           @default(false)
+  notes         String?
+  vaultLogs     SavingsVaultLog[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SavingsVaultLog {
+  id              String      @id @default(uuid())
+  goalId          String
+  type            String      // "DEPOSIT", "WITHDRAWAL"
+  amount          Decimal     @db.Decimal(12, 2)
+  sourceAccountId String?
+  date            DateTime    @db.Date
+  notes           String?
+  createdAt       DateTime    @default(now())
+
+  goal            SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model ExpectedInflow {
+  id                 String    @id @default(uuid())
+  userId             String
+  title              String    // "Salary", "Freelance Payout", "Friend Repayment"
+  amount             Decimal   @db.Decimal(12, 2)
+  inflowType         String    @default("ONE_TIME") // "MONTHLY", "ONE_TIME"
+  dueDay             Int?      // 1 - 31 if MONTHLY
+  startDate          DateTime? @db.Date // if MONTHLY
+  endDate            DateTime? @db.Date // if MONTHLY
+  expectedDate       DateTime? @db.Date // if ONE_TIME
+  confidence         String    @default("PROBABLE") // CERTAIN, PROBABLE, TENTATIVE
+  isReceived         Boolean   @default(false)
+  receivedDate       DateTime? @db.Date
+  depositToAccountId String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailAccount {
+  id           String         @id @default(uuid())
+  userId       String
+  email        String         // e.g. "work@gmail.com"
+  label        String         // e.g. "Work", "Personal"
+  color        String         @default("#3b82f6") // badge color hex
+  provider     String         @default("GMAIL") // GMAIL, CUSTOM_IMAP
+  authType     String         @default("APP_PASSWORD") // APP_PASSWORD, OAUTH
+  credentials  String         @db.Text // Encrypted App Password or OAuth Token
+  isActive     Boolean        @default(true)
+  lastSyncedAt DateTime?
+  syncStatus   String         @default("IDLE") // IDLE, SYNCING, ERROR, SUCCESS
+  errorMessage String?
+  messages     EmailMessage[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailMessage {
+  id          String       @id @default(uuid())
+  accountId   String
+  messageId   String       // Remote UID or Message ID
+  threadId    String?
+  senderName      String
+  senderEmail     String
+  senderAvatarUrl String?
+  subject         String
+  snippet     String       @db.Text
+  bodyHtml    String?      @db.Text
+  date        DateTime
+  isUnread    Boolean      @default(true)
+  isStarred   Boolean      @default(false)
+  isArchived  Boolean      @default(false)
+  labels      String[]     @default([])
+  createdAt   DateTime     @default(now())
+
+  account     EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, messageId])
+  @@index([accountId, date])
+  @@index([accountId, isArchived, isUnread])
+}
+
+model ClipboardNote {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  elements  Json     // array of string elements
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+

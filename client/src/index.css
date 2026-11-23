@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Strict 4-Tone Pure Monochrome Palette: Zero loud blues */
+  --bg: #09090b;            /* 1: Deep Canvas Obsidian */
+  --surface: #131316;       /* 2: Card / Container Surface */
+  --surface-hover: #1b1b20; /* Subtle hover state */
+  --border: #232329;        /* 3: Crisp Neutral Border */
+  --text: #f4f4f6;          /* 4: High Contrast Primary Typography */
+  --text-muted: #73737c;    /* Neutral Secondary Typography */
+  --accent: #f4f4f6;        /* Pure Monochrome High-contrast Accent */
+}
+
+* {
+  border-color: var(--border);
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Tactile micro-interactions (Apple OS feel) */
+.interactive-tap {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.interactive-tap:active {
+  transform: scale(0.985);
+}
+
+/* Alive icon animation utilities */
+@keyframes subtle-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(180deg);
+  }
+}
+
+.spin-on-hover:hover {
+  animation: subtle-spin 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Week navigation slide transitions */
+@keyframes slide-in-left {
+  from {
+    opacity: 0.15;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0.15;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-left {
+  animation: slide-in-left 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-right {
+  animation: slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Checkbox pop & fill animation */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-check-pop {
+  animation: check-pop 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Page navigation transition animation (smooth macOS feel) */
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Sonner Toast Theme Integration */
+[data-sonner-toaster] [data-sonner-toast] {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: var(--text-muted) !important;
+}
+
