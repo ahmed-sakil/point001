@@ -931,19 +931,21 @@ export const FinancePage: React.FC = () => {
       {/* ------------------------------------------------------------- */}
       {/* 1. TOP HEADER & NAVIGATION                                    */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-border">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-text" />
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-text">Personal Finance</h1>
+            <Wallet className="w-4 h-4 md:w-5 md:h-5 text-text shrink-0" />
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight text-text truncate">
+              Personal Finance
+            </h1>
           </div>
-          <p className="text-xs font-mono text-text-muted mt-1">
+          <p className="text-[11px] md:text-xs font-mono text-text-muted mt-0.5 truncate">
             Net amount: {formatCurrency(netAmount)}
           </p>
         </div>
 
         {/* Action Controls & Settings Drawer Trigger */}
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative shrink-0">
           <ActionDrawer triggerTitle="Finance Settings & Actions">
             <button
               onClick={() => setIsEditMode((prev) => !prev)}

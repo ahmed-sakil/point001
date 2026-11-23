@@ -9,8 +9,33 @@ export const FloatingWatch: React.FC = () => {
   const [time, setTime] = useState<Date>(new Date());
   const [position, setPosition] = useState<WatchPosition | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPinned, setIsPinned] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("point001_watch_pinned_bottom_right") === "true";
+    } catch {
+      return false;
+    }
+  });
   const watchRef = useRef<HTMLDivElement | null>(null);
   const dragStartRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
+
+  // Sync isPinned state on custom event and cross-tab storage event
+  useEffect(() => {
+    const handlePinChange = () => {
+      try {
+        setIsPinned(localStorage.getItem("point001_watch_pinned_bottom_right") === "true");
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("watch-pin-change", handlePinChange);
+    window.addEventListener("storage", handlePinChange);
+    return () => {
+      window.removeEventListener("watch-pin-change", handlePinChange);
+      window.removeEventListener("storage", handlePinChange);
+    };
+  }, []);
 
   // Live 1-second interval
   useEffect(() => {
@@ -175,22 +200,37 @@ export const FloatingWatch: React.FC = () => {
   const formattedHours = hours.toString().padStart(2, "0");
   const timeStr = `${formattedHours}:${minutes}:${seconds} ${ampm}`;
 
-  const style: React.CSSProperties = {
-    position: "fixed",
-    left: position ? `${position.x}px` : "auto",
-    right: position ? "auto" : "20px",
-    top: position ? `${position.y}px` : "16px",
-    zIndex: 50,
-  };
+  const style: React.CSSProperties = isPinned
+    ? {
+        position: "fixed",
+        right: "24px",
+        bottom: "24px",
+        left: "auto",
+        top: "auto",
+        zIndex: 50,
+        minWidth: "190px",
+      }
+    : {
+        position: "fixed",
+        left: position ? `${position.x}px` : "auto",
+        right: position ? "auto" : "20px",
+        top: position ? `${position.y}px` : "16px",
+        zIndex: 50,
+        minWidth: "190px",
+      };
 
   return (
     <div
       ref={watchRef}
       style={style}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+      onMouseDown={isPinned ? undefined : handleMouseDown}
+      onTouchStart={isPinned ? undefined : handleTouchStart}
       className={`select-none transition-shadow ${
-        isDragging ? "cursor-grabbing shadow-2xl scale-[1.02]" : "cursor-grab"
+        isPinned
+          ? "cursor-default"
+          : isDragging
+          ? "cursor-grabbing shadow-2xl scale-[1.02]"
+          : "cursor-grab"
       } hidden md:flex bg-surface/90 backdrop-blur-md border border-border px-3.5 py-2 rounded-md flex-col items-center gap-0.5 text-xs font-mono shadow-md`}
     >
       {/* Top Row: Day and Date */}

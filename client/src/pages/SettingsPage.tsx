@@ -18,6 +18,7 @@ import {
   Key,
   CheckCircle2,
   ArrowLeft,
+  Sliders,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -84,6 +85,27 @@ export const SettingsPage: React.FC = () => {
   // Google Integration Form State
   const [googleClientId, setGoogleClientId] = useState("");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
+  // Personalize / Visual State
+  const [isWatchPinned, setIsWatchPinned] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("point001_watch_pinned_bottom_right") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleWatchPin = () => {
+    const next = !isWatchPinned;
+    setIsWatchPinned(next);
+    try {
+      localStorage.setItem("point001_watch_pinned_bottom_right", String(next));
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new Event("watch-pin-change"));
+    toast.success(next ? "Watch pinned to bottom-right" : "Watch set to free draggable mode");
+  };
 
   // Fetch Email Accounts
   const fetchEmailAccounts = async () => {
@@ -403,6 +425,8 @@ export const SettingsPage: React.FC = () => {
                 ? "Google Integration"
                 : subpage === "mail"
                 ? "Mail Accounts (Unified Inbox)"
+                : subpage === "personalize"
+                ? "Visual & Personalize"
                 : subpage}
             </span>
           </div>
@@ -855,6 +879,60 @@ export const SettingsPage: React.FC = () => {
             </form>
           </div>
         )}
+
+        {/* ================================================================= */}
+        {/* SUBPAGE 4: VISUAL & PERSONALIZE                                  */}
+        {/* ================================================================= */}
+        {subpage === "personalize" && (
+          <div className="bg-surface border border-border rounded-md p-6 max-w-2xl mx-auto space-y-6 shadow-sm">
+            <div className="border-b border-border pb-4">
+              <div className="flex items-center gap-2.5">
+                <Sliders className="w-4 h-4 text-text" />
+                <h2 className="text-sm font-bold text-text">Visual & Personalize</h2>
+              </div>
+              <p className="text-xs text-text-muted font-mono mt-1">
+                Customize desktop widgets, docking positions, and visual interface behaviors.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Option: Pin Floating Watch */}
+              <div className="p-4 bg-bg border border-border rounded-md flex items-center justify-between gap-4">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-text">
+                      Pin Floating Watch to Bottom-Right
+                    </span>
+                    {isWatchPinned && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-surface border border-border text-text">
+                        Pinned
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted font-mono leading-relaxed">
+                    Statically locks the floating clock and date widget to the bottom-right corner across all screen sizes. Even if you resize the window, it repositions dynamically to stay bottom-right and maintains its complete width.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isWatchPinned}
+                  onClick={handleToggleWatchPin}
+                  className={`interactive-tap relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    isWatchPinned ? "bg-text" : "bg-surface border-border"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-bg shadow-md transition duration-200 ease-in-out ${
+                      isWatchPinned ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -874,13 +952,13 @@ export const SettingsPage: React.FC = () => {
             </span>
           </div>
           <p className="text-xs font-mono text-text-muted mt-1">
-            Profile management • Google Contact Sync • Mail Accounts
+            Profile management • Google Contact Sync • Mail Accounts • Visual Customization
           </p>
         </div>
       </div>
 
       {/* Grid of Settings Cards (Command Center Standard Style) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* CARD 1: PROFILE INFORMATION */}
         <section
           onClick={() => navigate("/settings/profile")}
@@ -1024,6 +1102,42 @@ export const SettingsPage: React.FC = () => {
 
           <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
             <span>Manage Accounts</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </section>
+
+        {/* CARD 4: VISUAL & PERSONALIZE */}
+        <section
+          onClick={() => navigate("/settings/personalize")}
+          className="interactive-tap group p-4 bg-surface border border-border rounded-md hover:border-border/80 flex flex-col justify-between cursor-pointer transition-all duration-200"
+        >
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-text" />
+                <h2 className="text-xs uppercase font-mono tracking-wider font-semibold text-text">
+                  Visual & Personalize
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
+                {isWatchPinned ? "Pinned" : "Draggable"}
+              </span>
+            </div>
+
+            <p className="text-xs text-text-muted font-mono leading-relaxed mb-3">
+              Customize interface elements, fixed widget placement, and desktop watch positioning.
+            </p>
+
+            <div className="p-3 bg-bg border border-border rounded-md text-[11px] font-mono space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Floating Watch:</span>
+                <span className="text-text">{isWatchPinned ? "Fixed Bottom-Right" : "Free Draggable"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
+            <span>Manage Personalization</span>
             <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </section>

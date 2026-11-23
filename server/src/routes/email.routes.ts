@@ -8,6 +8,7 @@ import {
   getEmailMessages,
   markEmailAsRead,
   toggleEmailStar,
+  getUnreadEmailCount,
 } from "../controllers/email.controller.js";
 
 const router = Router();
@@ -21,7 +22,8 @@ router.post("/accounts", connectEmailAccount);
 router.delete("/accounts/:id", disconnectEmailAccount);
 router.post("/accounts/:id/sync", syncEmailAccountHandler);
 
-// Messages
+// Messages & Counters
+router.get("/unread-count", getUnreadEmailCount);
 router.get("/messages", getEmailMessages);
 router.patch("/messages/:id/read", markEmailAsRead);
 router.patch("/messages/:id/star", toggleEmailStar);

@@ -472,3 +472,29 @@ export const toggleEmailStar = async (req: AuthenticatedRequest, res: Response):
     res.status(500).json({ error: "Failed to toggle star" });
   }
 };
+
+/**
+ * Get total unread email count across all accounts for current user
+ */
+export const getUnreadEmailCount = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const unreadCount = await prisma.emailMessage.count({
+      where: {
+        account: { userId },
+        isUnread: true,
+      },
+    });
+
+    res.json({ unreadCount });
+  } catch (error) {
+    console.error("[getUnreadEmailCount] Error:", error);
+    res.status(500).json({ error: "Failed to load unread email count" });
+  }
+};
+

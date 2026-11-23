@@ -562,7 +562,7 @@ export const ContactsPage: React.FC = () => {
       {/* ======================================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface border border-border rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8 max-h-[90vh] flex flex-col">
+          <div className="bg-surface border border-border rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-sm font-bold text-text">
                 {modalMode === "create" ? "Add Contact" : "Edit Contact"}
@@ -799,7 +799,7 @@ export const ContactsPage: React.FC = () => {
           onClick={() => setSelectedContactDetail(null)}
         >
           <div
-            className="bg-surface border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-2xl relative my-8"
+            className="bg-surface border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header: Avatar + Display Name & Company + Star/Close */}

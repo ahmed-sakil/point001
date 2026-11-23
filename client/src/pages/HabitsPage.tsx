@@ -466,16 +466,16 @@ export const HabitsPage: React.FC = () => {
   const animClass = slideDirection === "left" ? "animate-slide-left" : "animate-slide-right";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* ======================================================== */}
       {/* 1. TOP HEADER & SETTINGS DRAWER (OPENS ON HOVER)        */}
       {/* ======================================================== */}
-      <div className="flex items-center justify-between pb-4 border-b border-border">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-text">
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-border">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight text-text truncate">
             {showHistory ? "Challenge History" : "Habits & Discipline"}
           </h1>
-          <p className="text-xs text-text-muted font-mono mt-1">
+          <p className="text-[11px] md:text-xs text-text-muted font-mono mt-0.5 truncate">
             {showHistory
               ? "Completed & archived target challenges"
               : "5 Waqt Namaj • Daily Routines • Target Challenges"}

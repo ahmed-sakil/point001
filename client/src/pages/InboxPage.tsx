@@ -61,7 +61,6 @@ export const InboxPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,6 +148,7 @@ export const InboxPage: React.FC = () => {
       toast.success(`Sync complete: ${res.syncedCount} new messages fetched`);
       await fetchMessages(true);
       await fetchAccounts();
+      window.dispatchEvent(new Event("emails:updated"));
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to sync emails");
     } finally {
@@ -188,6 +188,7 @@ export const InboxPage: React.FC = () => {
       await api.patch(`/emails/messages/${message.id}/read`, {
         isUnread: newUnreadStatus,
       });
+      window.dispatchEvent(new Event("emails:updated"));
     } catch (err) {
       // revert on error
       setMessages((prev) =>
@@ -225,23 +226,51 @@ export const InboxPage: React.FC = () => {
     }
   };
 
-  // Add Task From Email Action
-  const handleCreateTaskFromEmail = async () => {
-    if (!selectedMessage) return;
-    setIsCreatingTask(true);
+  // Task Creation Modal from Email State
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskFormTitle, setTaskFormTitle] = useState("");
+  const [taskFormDescription, setTaskFormDescription] = useState("");
+  const [taskFormDueDate, setTaskFormDueDate] = useState("");
+  const [taskFormDueTime, setTaskFormDueTime] = useState("");
+  const [taskFormPriority, setTaskFormPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
+  const [isSavingTask, setIsSavingTask] = useState(false);
+
+  // Open Task Modal prefilled with email details
+  const handleOpenCreateTaskModal = (msg?: EmailMessage, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const target = msg || selectedMessage;
+    if (!target) return;
+    setTaskFormTitle(target.subject || "Email Task");
+    const snippetText = target.snippet ? `\n\n${target.snippet}` : "";
+    setTaskFormDescription(`From: ${target.senderName || ""} (${target.senderEmail || ""})${snippetText}`);
+    const todayStr = new Date().toISOString().split("T")[0];
+    setTaskFormDueDate(todayStr);
+    setTaskFormDueTime("");
+    setTaskFormPriority("MEDIUM");
+    setShowTaskModal(true);
+  };
+
+  const handleSaveTaskModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskFormTitle.trim()) {
+      toast.error("Task title is required");
+      return;
+    }
+    setIsSavingTask(true);
     try {
-      const title = selectedMessage.subject || "Email Task";
-      const description = `From: ${selectedMessage.senderName} (${selectedMessage.senderEmail})\n\n${selectedMessage.snippet}`;
       await api.post("/tasks-events/tasks", {
-        title,
-        description,
-        priority: "MEDIUM",
+        title: taskFormTitle.trim(),
+        description: taskFormDescription.trim() || undefined,
+        dueDate: taskFormDueDate || undefined,
+        dueTime: taskFormDueTime || undefined,
+        priority: taskFormPriority,
       });
-      toast.success("Task created from email in Tasks & Events!");
+      toast.success("Task created in Tasks & Events!");
+      setShowTaskModal(false);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || err?.message || "Failed to create task");
     } finally {
-      setIsCreatingTask(false);
+      setIsSavingTask(false);
     }
   };
 
@@ -303,11 +332,11 @@ export const InboxPage: React.FC = () => {
       {/* ======================================================== */}
       {/* HEADER SECTION (Command Center Standard) */}
       {/* ======================================================== */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-border">
         {/* Title and Unread Counter Subtitle */}
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-text">Unified Inbox</h1>
-          <p className="text-xs font-mono text-text-muted mt-1">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg md:text-xl font-bold tracking-tight text-text truncate">Unified Inbox</h1>
+          <p className="text-[11px] md:text-xs font-mono text-text-muted mt-0.5 truncate">
             {counts.unread > 0 ? (
               <span>
                 <strong className="text-text">{counts.unread} unread</strong>{" "}
@@ -320,13 +349,13 @@ export const InboxPage: React.FC = () => {
         </div>
 
         {/* Action Controls & Settings Drawer */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Account Filter Dropdown (if multiple accounts) */}
           {accounts.length > 1 && (
             <select
               value={selectedAccountId}
               onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="bg-surface border border-border rounded-md px-3 py-1.5 text-xs font-mono text-text focus:outline-hidden focus:border-text cursor-pointer"
+              className="bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-text focus:outline-hidden focus:border-text cursor-pointer max-w-[120px] sm:max-w-none truncate"
             >
               <option value="all">All Inboxes ({accounts.length})</option>
               {accounts.map((acc) => (
@@ -441,17 +470,12 @@ export const InboxPage: React.FC = () => {
             <div className="flex items-center gap-1.5 shrink-0">
               {/* 1. Add Task Icon */}
               <button
-                onClick={handleCreateTaskFromEmail}
-                disabled={isCreatingTask}
+                onClick={(e) => handleOpenCreateTaskModal(selectedMessage, e)}
                 title="Create task from this email"
                 aria-label="Create task from email"
-                className="interactive-tap p-1.5 bg-bg hover:bg-surface-hover border border-border rounded-md text-text-muted hover:text-text transition-colors cursor-pointer disabled:opacity-50"
+                className="interactive-tap p-1.5 bg-bg hover:bg-surface-hover border border-border rounded-md text-text-muted hover:text-text transition-colors cursor-pointer"
               >
-                {isCreatingTask ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CheckSquare className="w-3.5 h-3.5" />
-                )}
+                <CheckSquare className="w-3.5 h-3.5" />
               </button>
 
               {/* 2. Star Icon */}
@@ -584,7 +608,7 @@ export const InboxPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="space-y-1.5">
+                    <div className="space-y-1.5">
                     {todayMessages.map((msg) => (
                       <EmailItemRow
                         key={msg.id}
@@ -592,6 +616,7 @@ export const InboxPage: React.FC = () => {
                         onSelect={() => handleSelectMessage(msg)}
                         onToggleRead={(e) => handleToggleRead(msg, e)}
                         onToggleStar={(e) => handleToggleStar(msg, e)}
+                        onAddTask={(e) => handleOpenCreateTaskModal(msg, e)}
                         formatTime={formatTime}
                       />
                     ))}
@@ -624,6 +649,7 @@ export const InboxPage: React.FC = () => {
                         onSelect={() => handleSelectMessage(msg)}
                         onToggleRead={(e) => handleToggleRead(msg, e)}
                         onToggleStar={(e) => handleToggleStar(msg, e)}
+                        onAddTask={(e) => handleOpenCreateTaskModal(msg, e)}
                         formatTime={formatTime}
                       />
                     ))}
@@ -678,6 +704,7 @@ export const InboxPage: React.FC = () => {
                             onSelect={() => handleSelectMessage(msg)}
                             onToggleRead={(e) => handleToggleRead(msg, e)}
                             onToggleStar={(e) => handleToggleStar(msg, e)}
+                            onAddTask={(e) => handleOpenCreateTaskModal(msg, e)}
                             formatTime={formatTime}
                           />
                         ))}
@@ -688,6 +715,126 @@ export const InboxPage: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* FLOATING WINDOW: TASK MODAL (Create Task from Email)     */}
+      {/* ======================================================== */}
+      {showTaskModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowTaskModal(false);
+          }}
+        >
+          <div className="bg-surface border border-border rounded-md shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-text" />
+                <h2 className="text-xs uppercase font-mono font-semibold tracking-wider text-text">
+                  New Task from Email
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTaskModal(false)}
+                className="interactive-tap p-1 text-text-muted hover:text-text rounded-md"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTaskModal} className="space-y-3.5">
+              <div>
+                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={taskFormTitle}
+                  onChange={(e) => setTaskFormTitle(e.target.value)}
+                  placeholder="What needs to be done?"
+                  required
+                  autoFocus
+                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-hidden focus:border-text font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={taskFormDescription}
+                  onChange={(e) => setTaskFormDescription(e.target.value)}
+                  placeholder="Add details, notes, or sub-points..."
+                  rows={3}
+                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-hidden focus:border-text font-mono resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={taskFormDueDate}
+                    onChange={(e) => setTaskFormDueDate(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-hidden focus:border-text font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    value={taskFormDueTime}
+                    onChange={(e) => setTaskFormDueTime(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-hidden focus:border-text font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Priority
+                  </label>
+                  <select
+                    value={taskFormPriority}
+                    onChange={(e) => setTaskFormPriority(e.target.value as any)}
+                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-hidden focus:border-text font-mono"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="URGENT">URGENT</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="interactive-tap px-3 py-1.5 text-xs font-mono text-text-muted hover:text-text"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingTask}
+                  className="interactive-tap px-4 py-1.5 bg-text text-bg rounded-md text-xs font-semibold disabled:opacity-50"
+                >
+                  {isSavingTask ? "Saving..." : "Save Task"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -752,6 +899,7 @@ interface EmailRowProps {
   onSelect: () => void;
   onToggleRead: (e: React.MouseEvent) => void;
   onToggleStar: (e: React.MouseEvent) => void;
+  onAddTask?: (e: React.MouseEvent) => void;
   formatTime: (d: string) => string;
 }
 
@@ -760,6 +908,7 @@ const EmailItemRow: React.FC<EmailRowProps> = ({
   onSelect,
   onToggleRead,
   onToggleStar,
+  onAddTask,
   formatTime,
 }) => {
   return (
@@ -821,6 +970,17 @@ const EmailItemRow: React.FC<EmailRowProps> = ({
 
       {/* Row Hover Actions */}
       <div className="flex items-center gap-1 shrink-0 pt-1">
+        {onAddTask && (
+          <button
+            onClick={onAddTask}
+            className="p-1 text-text-muted hover:text-text rounded transition-colors cursor-pointer"
+            title="Create task from this email"
+            aria-label="Create task from email"
+          >
+            <CheckSquare className="w-3 h-3 opacity-40 group-hover:opacity-100" />
+          </button>
+        )}
+
         <button
           onClick={onToggleStar}
           className="p-1 text-text-muted hover:text-text rounded transition-colors cursor-pointer"

@@ -50,8 +50,15 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
       {/* Mobile Backdrop to close on tap outside */}
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 z-30"
-          onClick={() => setIsOpen(false)}
+          className="md:hidden fixed inset-0 z-30 bg-transparent"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(false);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setIsOpen(false);
+          }}
         />
       )}
 
@@ -69,7 +76,10 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
       {/* Mobile Popover Dropdown (Positioned below trigger) */}
       {isOpen && (
         <div
-          onClick={() => setIsOpen(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(false);
+          }}
           className="md:hidden absolute right-0 top-full mt-2 z-40 bg-surface border border-border rounded-md shadow-2xl p-1.5 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-150"
         >
           {children}
@@ -79,11 +89,14 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
       {/* Trigger Button (Tap toggles on mobile, hover opens on desktop) */}
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+        }}
         title={triggerTitle}
         aria-label={triggerTitle}
         aria-expanded={isOpen}
-        className={`interactive-tap p-1.5 md:p-2 rounded-md border transition-colors cursor-pointer shrink-0 ${
+        className={`relative z-40 interactive-tap p-1.5 md:p-2 rounded-md border transition-colors cursor-pointer shrink-0 ${
           isOpen
             ? "bg-text text-bg border-text shadow-xs"
             : "bg-surface border-border text-text hover:border-text"

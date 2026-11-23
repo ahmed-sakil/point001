@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Menu,
-  X,
   Compass,
   CheckSquare,
   Calendar as CalendarIcon,
@@ -28,7 +27,7 @@ export const MobileNav: React.FC = () => {
   return (
     <>
       {/* Mobile Top Status / Burger Bar */}
-      <div className="md:hidden sticky top-0 z-40 bg-surface/95 backdrop-blur-md border-b border-border px-4 py-2.5 flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-b border-border px-4 py-2.5 flex items-center justify-between h-12">
         <div className="flex items-center gap-2">
           <PointLogo size={18} className="text-text" />
           <span className="font-bold text-sm tracking-tight text-text">point001</span>
@@ -43,28 +42,21 @@ export const MobileNav: React.FC = () => {
         </button>
       </div>
 
-      {/* Slide-out Drawer Overlay */}
+      {/* Slide-out Drawer Overlay (Opens from Right) */}
       {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="md:hidden fixed inset-0 z-50 flex justify-end">
           <div
             className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
             onClick={() => setDrawerOpen(false)}
           />
 
-          <div className="relative w-72 max-w-[85vw] bg-surface h-full shadow-2xl flex flex-col z-10 border-r border-border animate-in slide-in-from-left duration-200">
-            <div className="p-3 border-b border-border flex items-center justify-between bg-bg">
-              <span className="text-xs uppercase font-mono tracking-wider text-text-muted">Menu</span>
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="interactive-tap p-1 text-text-muted hover:text-text border border-transparent hover:border-border rounded-md"
-                aria-label="Close menu"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+          <div className="relative w-72 max-w-[85vw] bg-surface h-full shadow-2xl flex flex-col z-10 border-l border-border animate-in slide-in-from-right duration-200">
             <div className="flex-1 overflow-y-auto">
-              <Sidebar onNavigate={() => setDrawerOpen(false)} className="w-full border-r-0" />
+              <Sidebar
+                onNavigate={() => setDrawerOpen(false)}
+                onClose={() => setDrawerOpen(false)}
+                className="w-full border-r-0"
+              />
             </div>
           </div>
         </div>

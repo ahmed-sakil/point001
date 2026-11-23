@@ -23,7 +23,7 @@ export const AppLayout: React.FC = () => {
         <MobileNav />
 
         {/* Scrollable Page Body with Smooth Route Transition */}
-        <main className="flex-1 overflow-y-auto px-4 py-5 md:px-8 md:py-7 pb-24 md:pb-8">
+        <main className="flex-1 overflow-y-auto px-4 pt-16 pb-32 md:px-8 md:pt-7 md:pb-8">
           <div key={location.pathname} className="max-w-6xl mx-auto animate-page-enter">
             <Outlet />
           </div>

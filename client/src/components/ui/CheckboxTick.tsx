@@ -8,6 +8,7 @@ export interface CheckboxTickProps {
   isLocked?: boolean;
   title?: string;
   size?: "sm" | "md";
+  shape?: "square" | "circle";
   className?: string;
   "aria-label"?: string;
 }
@@ -19,12 +20,14 @@ export const CheckboxTick: React.FC<CheckboxTickProps> = ({
   isLocked = false,
   title,
   size = "md",
+  shape = "square",
   className = "",
   "aria-label": ariaLabel,
 }) => {
   const isActionDisabled = disabled || isLocked;
 
-  const sizeClass = size === "sm" ? "w-4 h-4 rounded-xs" : "w-6 h-6 rounded-md";
+  const roundedClass = shape === "circle" ? "rounded-full" : size === "sm" ? "rounded-xs" : "rounded-md";
+  const sizeClass = `${size === "sm" ? "w-4 h-4" : "w-6 h-6"} ${roundedClass}`;
   const iconSizeClass = size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5";
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { NavLink, Link } from "react-router-dom";
 import {
   Compass,
@@ -10,8 +10,10 @@ import {
   Inbox as InboxIcon,
   Settings as SettingsIcon,
   LogOut,
+  X,
 } from "lucide-react";
 import PointLogo from "../icons/PointLogo";
+import { api } from "../../lib/api";
 
 export interface NavItem {
   name: string;
@@ -55,7 +57,6 @@ export const navItems: NavItem[] = [
     name: "Inbox",
     path: "/inbox",
     icon: InboxIcon,
-    badge: 3,
   },
   {
     name: "Settings",
@@ -67,13 +68,31 @@ export const navItems: NavItem[] = [
 interface SidebarProps {
   onNavigate?: () => void;
   className?: string;
+  onClose?: () => void;
 }
 
 import { useAuth } from "../../context/AuthContext";
 
-export const Sidebar: React.FC<SidebarProps> = ({ onNavigate, className = "" }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onNavigate, className = "", onClose }) => {
   const { user, logout } = useAuth();
   const [avatarError, setAvatarError] = useState(false);
+  const [unreadEmailCount, setUnreadEmailCount] = useState<number>(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await api.get<{ unreadCount: number }>("/emails/unread-count");
+      setUnreadEmailCount(res.unreadCount || 0);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const handleUpdate = () => fetchUnreadCount();
+    window.addEventListener("emails:updated", handleUpdate);
+    return () => window.removeEventListener("emails:updated", handleUpdate);
+  }, [fetchUnreadCount]);
 
   useEffect(() => {
     setAvatarError(false);
@@ -93,14 +112,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNavigate, className = "" }) 
     >
       {/* Top Header Section */}
       <div>
-        <div className="px-5 py-6 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <PointLogo size={22} className="text-text" />
-            <span className="text-lg font-bold tracking-tight text-text">point001</span>
+        <div className="px-4 py-2.5 md:px-5 md:py-6 border-b border-border flex items-center justify-between min-h-12 md:min-h-0">
+          <div>
+            <div className="flex items-center gap-2">
+              <PointLogo size={18} className="text-text" />
+              <span className="text-sm md:text-lg font-bold tracking-tight text-text">point001</span>
+            </div>
+            <p className="text-[10px] md:text-[11px] uppercase tracking-wider text-text-muted font-mono mt-0.5 md:mt-1 pl-0.5">
+              one point for everything.
+            </p>
           </div>
-          <p className="text-[11px] uppercase tracking-wider text-text-muted font-mono mt-1.5 pl-0.5">
-            one point for everything.
-          </p>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="interactive-tap p-1.5 border border-border bg-bg text-text/80 hover:text-text rounded-md transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items with Left Partial Border & Non-shifting Scale Hover */}
@@ -140,11 +170,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNavigate, className = "" }) 
                     </div>
 
                     {/* Badge */}
-                    {!isActive && item.badge && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 bg-bg border border-border text-text-muted rounded-xs">
-                        {item.badge}
-                      </span>
-                    )}
+                    {!isActive && (() => {
+                      const badgeValue = item.path === "/inbox"
+                        ? (unreadEmailCount > 0 ? (unreadEmailCount > 99 ? "99+" : unreadEmailCount) : undefined)
+                        : item.badge;
+                      if (!badgeValue) return null;
+                      return (
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 bg-bg border border-border text-text-muted rounded-xs">
+                          {badgeValue}
+                        </span>
+                      );
+                    })()}
                   </>
                 )}
               </NavLink>
