@@ -266,21 +266,59 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response): Prom
     const { id } = req.params;
     const { title, description, dueDate, dueTime, priority } = req.body;
 
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const existing = await prisma.task.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+
+    // Check if current task's dueDate is locked
+    if (existing.dueDate) {
+      const currentDayLock = await prisma.calendarDayLock.findFirst({
+        where: { userId, date: existing.dueDate, isLocked: true },
+      });
+      if (currentDayLock) {
+        res.status(400).json({ error: "Cannot modify tasks on a locked day" });
+        return;
+      }
+    }
+
+    // Check if new target dueDate is locked
+    let targetDueDate: Date | null | undefined = undefined;
+    if (dueDate !== undefined) {
+      targetDueDate = dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null;
+      if (targetDueDate) {
+        const targetDayLock = await prisma.calendarDayLock.findFirst({
+          where: { userId, date: targetDueDate, isLocked: true },
+        });
+        if (targetDayLock) {
+          res.status(400).json({ error: "Cannot move tasks to a locked day" });
+          return;
+        }
+      }
+    }
+
     const data: any = {};
     if (title !== undefined) data.title = title.trim();
     if (description !== undefined) data.description = description ? description.trim() : null;
     if (dueTime !== undefined) data.dueTime = dueTime ? dueTime.trim() : null;
     if (priority !== undefined) data.priority = priority;
-    if (dueDate !== undefined) {
-      data.dueDate = dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null;
-    }
+    if (dueDate !== undefined) data.dueDate = targetDueDate;
 
-    const updated = await prisma.task.updateMany({
-      where: { id, userId },
+    const updated = await prisma.task.update({
+      where: { id: existing.id },
       data,
     });
 
-    res.json({ success: true, count: updated.count });
+    res.json({ success: true, count: 1, task: updated });
   } catch (error) {
     console.error("updateTask error:", error);
     res.status(500).json({ error: "Failed to update task" });
@@ -292,8 +330,32 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response): Prom
     const userId = req.userId;
     const { id } = req.params;
 
-    await prisma.task.deleteMany({
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const existing = await prisma.task.findFirst({
       where: { id, userId },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+
+    if (existing.dueDate) {
+      const dayLock = await prisma.calendarDayLock.findFirst({
+        where: { userId, date: existing.dueDate, isLocked: true },
+      });
+      if (dayLock) {
+        res.status(400).json({ error: "Cannot delete tasks from a locked day" });
+        return;
+      }
+    }
+
+    await prisma.task.delete({
+      where: { id: existing.id },
     });
 
     res.json({ success: true });
@@ -436,6 +498,50 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       location,
     } = req.body;
 
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const existing = await prisma.calendarEvent.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Event not found" });
+      return;
+    }
+
+    // Check if original event date is locked
+    const origDayKey = existing.startDate.toISOString().split("T")[0];
+    const origDayLock = await prisma.calendarDayLock.findFirst({
+      where: {
+        userId,
+        date: new Date(`${origDayKey}T00:00:00.000Z`),
+        isLocked: true,
+      },
+    });
+    if (origDayLock) {
+      res.status(400).json({ error: "Cannot modify events on a locked day" });
+      return;
+    }
+
+    // Check if new start date is locked
+    if (startDate) {
+      const newDayKey = new Date(startDate).toISOString().split("T")[0];
+      const newDayLock = await prisma.calendarDayLock.findFirst({
+        where: {
+          userId,
+          date: new Date(`${newDayKey}T00:00:00.000Z`),
+          isLocked: true,
+        },
+      });
+      if (newDayLock) {
+        res.status(400).json({ error: "Cannot move events to a locked day" });
+        return;
+      }
+    }
+
     const data: any = {};
     if (title !== undefined) data.title = title.trim();
     if (description !== undefined) data.description = description ? description.trim() : null;
@@ -459,12 +565,12 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       data.recurrenceEndDate = recurrenceEndDate ? new Date(`${recurrenceEndDate}T00:00:00.000Z`) : null;
     }
 
-    const updated = await prisma.calendarEvent.updateMany({
-      where: { id, userId },
+    const updated = await prisma.calendarEvent.update({
+      where: { id: existing.id },
       data,
     });
 
-    res.json({ success: true, count: updated.count });
+    res.json({ success: true, count: 1, event: updated });
   } catch (error) {
     console.error("updateEvent error:", error);
     res.status(500).json({ error: "Failed to update event" });
@@ -476,8 +582,35 @@ export const deleteEvent = async (req: AuthenticatedRequest, res: Response): Pro
     const userId = req.userId;
     const { id } = req.params;
 
-    await prisma.calendarEvent.deleteMany({
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const existing = await prisma.calendarEvent.findFirst({
       where: { id, userId },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Event not found" });
+      return;
+    }
+
+    const eventDayKey = existing.startDate.toISOString().split("T")[0];
+    const dayLock = await prisma.calendarDayLock.findFirst({
+      where: {
+        userId,
+        date: new Date(`${eventDayKey}T00:00:00.000Z`),
+        isLocked: true,
+      },
+    });
+    if (dayLock) {
+      res.status(400).json({ error: "Cannot delete events from a locked day" });
+      return;
+    }
+
+    await prisma.calendarEvent.delete({
+      where: { id: existing.id },
     });
 
     res.json({ success: true });

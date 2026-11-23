@@ -2,9 +2,10 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
+import config from "../lib/config.js";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "point001_jwt_secret_dev_key_replace_in_prod_123456";
+const JWT_SECRET = config.JWT_SECRET;
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {

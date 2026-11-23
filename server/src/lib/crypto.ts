@@ -1,10 +1,11 @@
 import crypto from "crypto";
+import config from "./config.js";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // Recommended for GCM
 
 const getKey = (): Buffer => {
-  const envKey = process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef";
+  const envKey = config.ENCRYPTION_KEY;
   // Always ensure a 32-byte buffer
   if (Buffer.byteLength(envKey) === 32) {
     return Buffer.from(envKey, "utf-8");

@@ -16,6 +16,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 import { api } from "../lib/api";
 import ActionDrawer from "../components/ui/ActionDrawer";
 
@@ -287,6 +288,16 @@ export const InboxPage: React.FC = () => {
     return d.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
+  // Sanitize email HTML content with DOMPurify to prevent Stored XSS
+  const sanitizedBodyHtml = useMemo(() => {
+    if (!selectedMessage?.bodyHtml) return "";
+    return DOMPurify.sanitize(selectedMessage.bodyHtml, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ["target"],
+      FORBID_TAGS: ["script", "iframe", "object", "embed", "base", "form"],
+    });
+  }, [selectedMessage?.bodyHtml]);
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
       {/* ======================================================== */}
@@ -509,7 +520,7 @@ export const InboxPage: React.FC = () => {
             {selectedMessage.bodyHtml ? (
               <div className="rounded-md border border-border bg-bg p-5 overflow-x-auto text-xs text-text leading-relaxed font-sans shadow-inner">
                 <div
-                  dangerouslySetInnerHTML={{ __html: selectedMessage.bodyHtml }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedBodyHtml }}
                   className="email-body-content [&_*]:!max-w-full [&_img]:!max-w-full [&_a]:text-text [&_a]:underline [&_table]:!max-w-full"
                 />
               </div>

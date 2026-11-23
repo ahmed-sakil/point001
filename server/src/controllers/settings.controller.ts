@@ -2,6 +2,7 @@ import { Response } from "express";
 import bcrypt from "bcryptjs";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { prisma } from "../lib/prisma.js";
+import config from "../lib/config.js";
 
 export const getSettings = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -40,8 +41,8 @@ export const getSettings = async (req: AuthenticatedRequest, res: Response): Pro
       },
       google: {
         hasApiKey: Boolean(user.googleApiKey),
-        googleApiKey: user.googleApiKey || "",
-        googleClientId: user.googleClientId || process.env.GOOGLE_CLIENT_ID || "",
+        googleApiKey: user.googleApiKey ? "••••••••" : "",
+        googleClientId: user.googleClientId || config.GOOGLE_CLIENT_ID || "",
         lastSyncAt: user.googleContactsSyncAt ? user.googleContactsSyncAt.toISOString() : null,
       },
     });
@@ -274,41 +275,24 @@ export const syncGoogle = async (req: AuthenticatedRequest, res: Response): Prom
       console.warn("People API profile note:", pErr);
     }
 
-    // Step 2: STRICT SECURITY CHECK - Ensure Google Account matches Logged-in User
-    const loggedInEmail = user.email.toLowerCase().trim();
+    // Step 2: STRICT SECURITY CHECK - Ensure Google Account does not belong to another registered user
     if (authenticatedGoogleEmail) {
       const googleEmailNormalized = authenticatedGoogleEmail.toLowerCase().trim();
-      const isLocalDevAccount =
-        loggedInEmail.endsWith(".local") ||
-        loggedInEmail.startsWith("dev@") ||
-        loggedInEmail.includes("test") ||
-        process.env.NODE_ENV !== "production";
+      const existingEmailUser = await prisma.user.findUnique({
+        where: { email: googleEmailNormalized },
+      });
 
-      if (googleEmailNormalized !== loggedInEmail) {
-        // Check if another user already owns this Google email
-        const existingEmailUser = await prisma.user.findUnique({
-          where: { email: googleEmailNormalized },
+      if (existingEmailUser && existingEmailUser.id !== userId && config.NODE_ENV === "production") {
+        // Prevent linking a Google account already registered as another user's primary identity
+        res.status(403).json({
+          error: `Security Verification Failed: The Google account "${authenticatedGoogleEmail}" is already linked to another user account.`,
+          code: "ACCOUNT_MISMATCH",
+          loggedInEmail: user.email,
+          googleEmail: authenticatedGoogleEmail,
         });
-
-        if (!existingEmailUser) {
-          // If no collision exists, update the user's primary email to their authenticated Google email
-          await prisma.user.update({
-            where: { id: userId },
-            data: { email: googleEmailNormalized },
-          });
-        } else if (existingEmailUser.id !== userId && !isLocalDevAccount) {
-          // Strict security: prevent linking another user's verified Google account
-          res.status(403).json({
-            error: `Security Verification Failed: The Google account "${authenticatedGoogleEmail}" is already linked to another user.`,
-            code: "ACCOUNT_MISMATCH",
-            loggedInEmail: user.email,
-            googleEmail: authenticatedGoogleEmail,
-          });
-          return;
-        }
+        return;
       }
     } else {
-      // If the token is valid for People API connections, we proceed with contacts sync
       console.warn("Could not determine Google email directly, proceeding to test connections API...");
     }
 
