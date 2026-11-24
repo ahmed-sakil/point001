@@ -731,8 +731,8 @@ export const createDebt = async (req: AuthenticatedRequest, res: Response): Prom
     const userId = req.userId;
     const { type, personName, contactNumber, totalAmount, dueDate, notes } = req.body;
 
-    if (!userId || !type || !personName || !totalAmount) {
-      res.status(400).json({ error: "Type, person name, and total amount are required" });
+    if (!userId || !type || !personName || !totalAmount || !dueDate) {
+      res.status(400).json({ error: "Type, person name, total amount, and due date are required" });
       return;
     }
 
@@ -743,7 +743,7 @@ export const createDebt = async (req: AuthenticatedRequest, res: Response): Prom
         personName: personName.trim(),
         contactNumber: contactNumber?.trim() || null,
         totalAmount: new Prisma.Decimal(totalAmount),
-        dueDate: dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null,
+        dueDate: new Date(`${dueDate}T00:00:00.000Z`),
         notes: notes?.trim() || null,
         status: "PENDING",
       },
@@ -762,6 +762,11 @@ export const updateDebt = async (req: AuthenticatedRequest, res: Response): Prom
     const { id } = req.params;
     const { type, personName, contactNumber, totalAmount, dueDate, notes, status } = req.body;
 
+    if (dueDate !== undefined && !dueDate) {
+      res.status(400).json({ error: "Due date is required" });
+      return;
+    }
+
     const existing = await prisma.debtRecord.findFirst({
       where: { id, userId },
     });
@@ -777,7 +782,7 @@ export const updateDebt = async (req: AuthenticatedRequest, res: Response): Prom
         personName: personName ? personName.trim() : existing.personName,
         contactNumber: contactNumber !== undefined ? contactNumber?.trim() || null : existing.contactNumber,
         totalAmount: totalAmount ? new Prisma.Decimal(totalAmount) : existing.totalAmount,
-        dueDate: dueDate !== undefined ? (dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null) : existing.dueDate,
+        dueDate: dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : existing.dueDate,
         notes: notes !== undefined ? notes?.trim() || null : existing.notes,
         status: status || existing.status,
       },
@@ -918,6 +923,94 @@ export const recordDebtPayment = async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     console.error("recordDebtPayment error:", error);
     res.status(500).json({ error: "Failed to record payment" });
+  }
+};
+
+export const deleteDebtPaymentLog = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    const { id, paymentId } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const debt = await prisma.debtRecord.findFirst({
+      where: { id, userId },
+      include: { paymentLogs: true },
+    });
+    if (!debt) {
+      res.status(404).json({ error: "Debt record not found" });
+      return;
+    }
+
+    const paymentLog = debt.paymentLogs.find((p) => p.id === paymentId);
+    if (!paymentLog) {
+      res.status(404).json({ error: "Payment log not found" });
+      return;
+    }
+
+    const payAmount = Number(paymentLog.amount);
+    const newPaidTotal = Math.max(0, Number(debt.paidAmount) - payAmount);
+    const newStatus =
+      newPaidTotal <= 0
+        ? "PENDING"
+        : newPaidTotal >= Number(debt.totalAmount)
+        ? "SETTLED"
+        : "PARTIAL";
+
+    const operations: any[] = [
+      prisma.debtPaymentLog.delete({
+        where: { id: paymentId },
+      }),
+      prisma.debtRecord.update({
+        where: { id },
+        data: {
+          paidAmount: new Prisma.Decimal(newPaidTotal),
+          status: newStatus,
+        },
+      }),
+    ];
+
+    if (paymentLog.accountId) {
+      if (debt.type === "I_OWE") {
+        // Was paid out: refund/increment balance
+        operations.push(
+          prisma.financialAccount.update({
+            where: { id: paymentLog.accountId },
+            data: { balance: { increment: payAmount } },
+          })
+        );
+      } else {
+        // Was received: decrement balance
+        operations.push(
+          prisma.financialAccount.update({
+            where: { id: paymentLog.accountId },
+            data: { balance: { decrement: payAmount } },
+          })
+        );
+      }
+
+      // Delete matching financial transaction
+      operations.push(
+        prisma.financialTransaction.deleteMany({
+          where: {
+            userId,
+            linkedDebtId: id,
+            amount: new Prisma.Decimal(payAmount),
+            date: paymentLog.date,
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(operations);
+
+    res.json({ success: true, paidAmount: newPaidTotal, status: newStatus });
+  } catch (error) {
+    console.error("deleteDebtPaymentLog error:", error);
+    res.status(500).json({ error: "Failed to delete debt payment log" });
   }
 };
 
@@ -1296,6 +1389,70 @@ export const markInflowReceived = async (req: AuthenticatedRequest, res: Respons
   } catch (error) {
     console.error("markInflowReceived error:", error);
     res.status(500).json({ error: "Failed to mark inflow as received" });
+  }
+};
+
+export const revertInflowReceived = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const inflow = await prisma.expectedInflow.findFirst({
+      where: { id, userId },
+    });
+    if (!inflow) {
+      res.status(404).json({ error: "Inflow not found" });
+      return;
+    }
+
+    if (!inflow.isReceived) {
+      res.json({ success: true, isReceived: false });
+      return;
+    }
+
+    const numAmount = Number(inflow.amount);
+    const ops: any[] = [
+      prisma.expectedInflow.update({
+        where: { id },
+        data: {
+          isReceived: false,
+          receivedDate: null,
+          depositToAccountId: null,
+        },
+      }),
+    ];
+
+    if (inflow.depositToAccountId) {
+      ops.push(
+        prisma.financialAccount.update({
+          where: { id: inflow.depositToAccountId },
+          data: { balance: { decrement: numAmount } },
+        })
+      );
+      ops.push(
+        prisma.financialTransaction.deleteMany({
+          where: {
+            userId,
+            toAccountId: inflow.depositToAccountId,
+            type: "INCOME",
+            category: "Expected Inflow",
+            amount: new Prisma.Decimal(numAmount),
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(ops);
+
+    res.json({ success: true, isReceived: false });
+  } catch (error) {
+    console.error("revertInflowReceived error:", error);
+    res.status(500).json({ error: "Failed to revert expected inflow" });
   }
 };
 

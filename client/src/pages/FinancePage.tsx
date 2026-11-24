@@ -20,6 +20,9 @@ import {
   Landmark,
   Banknote,
   Phone,
+  Clock,
+  CheckCircle2,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -625,6 +628,20 @@ export const FinancePage: React.FC = () => {
     }
   };
 
+  const handleDeleteDebtPaymentLog = async (debtId: string, paymentId: string) => {
+    if (!window.confirm("Undo this payment and restore the account balance?")) return;
+    try {
+      await api.delete(`/finance/debts/${debtId}/payments/${paymentId}`);
+      toast.success("Payment undone and balance restored");
+      if (selectedDebtForDetail?.id === debtId) {
+        setSelectedDebtForDetail(null);
+      }
+      fetchFinanceData(selectedMonthYear);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to undo payment");
+    }
+  };
+
   // =========================================================================
   // HANDLERS: MONTHLY COSTS (START TO END DATE)
   // =========================================================================
@@ -795,6 +812,17 @@ export const FinancePage: React.FC = () => {
     }
   };
 
+  const handleRevertInflow = async (inflowId: string) => {
+    if (!window.confirm("Undo received status and revert account balance?")) return;
+    try {
+      await api.post(`/finance/inflows/${inflowId}/revert`);
+      toast.success("Inflow reverted to pending");
+      fetchFinanceData(selectedMonthYear);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to revert inflow");
+    }
+  };
+
   // =========================================================================
   // HANDLERS: SAVINGS VAULTS (e.g. PS5)
   // =========================================================================
@@ -934,28 +962,129 @@ export const FinancePage: React.FC = () => {
       : 0;
   });
 
-  // Two Types of Costs: Monthly Repeating & Daily Costs
+  // =========================================================================
+  // UNIFIED CASHFLOW PIPELINE (ZERO-INBOX MODEL)
+  // =========================================================================
+
+  // 1. Costs & Commitments for Selected Month
+  const thisMonthDena = denaList.filter(
+    (d) => d.dueDate && d.dueDate.startsWith(selectedMonthYear)
+  );
+  const pendingDenaThisMonth = thisMonthDena.filter((d) => d.status !== "SETTLED");
+
+  // Dena Payments made in selected month
+  const denaPaymentsThisMonth: {
+    debtId: string;
+    paymentId: string;
+    personName: string;
+    amount: number;
+    date: string;
+    accountId: string | null;
+    accountName: string | null;
+    notes: string | null;
+  }[] = [];
+  for (const d of denaList) {
+    if (d.paymentLogs) {
+      for (const p of d.paymentLogs) {
+        if (p.date && p.date.startsWith(selectedMonthYear)) {
+          const acc = accounts.find((a) => a.id === p.accountId);
+          denaPaymentsThisMonth.push({
+            debtId: d.id,
+            paymentId: p.id,
+            personName: d.personName,
+            amount: p.amount,
+            date: p.date,
+            accountId: p.accountId || null,
+            accountName: acc?.name || null,
+            notes: p.notes || null,
+          });
+        }
+      }
+    }
+  }
+
   const repeatingCosts = monthlyCosts.filter(
     (c) => c.costType === "MONTHLY_REPEATING" || (!c.isQuickCost && !c.costType)
   );
+  const pendingRepeatingCosts = repeatingCosts.filter((c) => !c.isPaid);
+  const paidRepeatingCosts = repeatingCosts.filter((c) => c.isPaid);
+
   const dailyCosts = monthlyCosts.filter(
     (c) => c.costType === "DAILY_COST" || c.isQuickCost
   );
 
-  // Monthly Incomes breakdown: Repeating vs One-Time / Quick Incomes
-  const repeatingIncomes = expectedInflows.filter(
-    (inf) => inf.inflowType === "MONTHLY"
+  // Totals for Monthly Costs
+  const totalMonthCostsCalculated =
+    repeatingCosts.reduce((s, c) => s + c.amount, 0) +
+    pendingDenaThisMonth.reduce((s, d) => s + d.remainingAmount, 0) +
+    denaPaymentsThisMonth.reduce((s, p) => s + p.amount, 0) +
+    dailyCosts.reduce((s, c) => s + c.amount, 0);
+
+  const totalMonthlyCostDueCalculated =
+    pendingRepeatingCosts.reduce((s, c) => s + c.amount, 0) +
+    pendingDenaThisMonth.reduce((s, d) => s + d.remainingAmount, 0);
+
+  // 2. Inflows & Receivables for Selected Month
+  const thisMonthPaona = paonaList.filter(
+    (p) => p.dueDate && p.dueDate.startsWith(selectedMonthYear)
   );
-  const oneTimeIncomes = expectedInflows.filter(
-    (inf) => inf.inflowType === "ONE_TIME" || inf.isQuickInflow
+  const pendingPaonaThisMonth = thisMonthPaona.filter((p) => p.status !== "SETTLED");
+
+  // Paona Collections made in selected month
+  const paonaCollectionsThisMonth: {
+    debtId: string;
+    paymentId: string;
+    personName: string;
+    amount: number;
+    date: string;
+    accountId: string | null;
+    accountName: string | null;
+    notes: string | null;
+  }[] = [];
+  for (const p of paonaList) {
+    if (p.paymentLogs) {
+      for (const log of p.paymentLogs) {
+        if (log.date && log.date.startsWith(selectedMonthYear)) {
+          const acc = accounts.find((a) => a.id === log.accountId);
+          paonaCollectionsThisMonth.push({
+            debtId: p.id,
+            paymentId: log.id,
+            personName: p.personName,
+            amount: log.amount,
+            date: log.date,
+            accountId: log.accountId || null,
+            accountName: acc?.name || null,
+            notes: log.notes || null,
+          });
+        }
+      }
+    }
+  }
+
+  const pendingRepeatingIncomes = expectedInflows.filter(
+    (inf) => !inf.isReceived && inf.inflowType === "MONTHLY"
   );
-  const totalPendingInflows = expectedInflows
-    .filter((inf) => !inf.isReceived)
-    .reduce((sum, inf) => sum + inf.amount, 0);
-  const totalThisMonthExpectedIncome = expectedInflows.reduce(
-    (sum, inf) => sum + inf.amount,
-    0
+  const receivedRepeatingIncomes = expectedInflows.filter(
+    (inf) => inf.isReceived && inf.inflowType === "MONTHLY"
   );
+
+  const pendingOneTimeIncomes = expectedInflows.filter(
+    (inf) => !inf.isReceived && (inf.inflowType === "ONE_TIME" || !inf.inflowType) && !inf.isQuickInflow
+  );
+  const receivedOneTimeIncomes = expectedInflows.filter(
+    (inf) => (inf.isReceived && (inf.inflowType === "ONE_TIME" || !inf.inflowType)) || inf.isQuickInflow
+  );
+
+  // Totals for Monthly Incomes
+  const totalThisMonthExpectedIncomeCalculated =
+    expectedInflows.reduce((s, inf) => s + inf.amount, 0) +
+    pendingPaonaThisMonth.reduce((s, p) => s + p.remainingAmount, 0) +
+    paonaCollectionsThisMonth.reduce((s, p) => s + p.amount, 0);
+
+  const totalPendingInflowsCalculated =
+    pendingRepeatingIncomes.reduce((s, inf) => s + inf.amount, 0) +
+    pendingOneTimeIncomes.reduce((s, inf) => s + inf.amount, 0) +
+    pendingPaonaThisMonth.reduce((s, p) => s + p.remainingAmount, 0);
 
   const netAmount =
     (summary?.totalLiquidBalance || 0) +
@@ -1892,85 +2021,92 @@ export const FinancePage: React.FC = () => {
                 <div>
                   <span className="text-[10px] uppercase font-mono text-text-muted block">Total</span>
                   <span className="text-sm font-bold font-mono text-text">
-                    {formatCurrency(summary.totalMonthCosts ?? (summary.totalMonthlyCostDue + summary.totalMonthlyCostPaid))}
+                    {formatCurrency(totalMonthCostsCalculated)}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-mono text-text-muted block">Expected Due</span>
                   <span className="text-sm font-bold font-mono text-text">
-                    {formatCurrency(summary.totalMonthlyCostDue)}
+                    {formatCurrency(totalMonthlyCostDueCalculated)}
                   </span>
                 </div>
               </div>
             </div>
 
           {/* ----------------------------------------------------------- */}
-          {/* TYPE 1: MONTHLY REPEATING COSTS                             */}
+          {/* SECTION 1: TO PAY THIS MONTH (REPEATING BILLS & DENA)       */}
           {/* ----------------------------------------------------------- */}
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-1 border-b border-border">
               <div className="flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-text" />
+                <Clock className="w-4 h-4 text-text" />
                 <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                  1. Monthly Repeating Costs
+                  To Pay This Month
                 </h3>
               </div>
 
               {isEditMode && (
-                <button
-                  onClick={() => {
-                    setEditingMonthlyCost(null);
-                    setIsMonthlyCostModalOpen(true);
-                  }}
-                  className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 transition-opacity"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Contract / Cost</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingMonthlyCost(null);
+                      setIsMonthlyCostModalOpen(true);
+                    }}
+                    className="interactive-tap flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-text text-bg font-mono text-[11px] font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    <Plus className="w-3 h-3 stroke-[3]" />
+                    <span>New Cost</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDebtModalType("I_OWE");
+                      setEditingDebt(null);
+                      setIsDebtModalOpen(true);
+                    }}
+                    className="interactive-tap flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-surface text-text font-mono text-[11px] font-semibold hover:border-text transition-colors"
+                  >
+                    <Plus className="w-3 h-3 stroke-[3]" />
+                    <span>Add Dena</span>
+                  </button>
+                </div>
               )}
             </div>
 
-            {repeatingCosts.length === 0 ? (
+            {pendingRepeatingCosts.length === 0 && pendingDenaThisMonth.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center text-center bg-surface border border-border rounded-md">
-                <CalendarIcon className="w-7 h-7 text-text-muted mb-1.5" />
-                <p className="text-xs font-mono text-text">No monthly repeating contracts active for {getMonthDisplayName(selectedMonthYear)}.</p>
+                <Check className="w-7 h-7 text-text mb-1.5" />
+                <p className="text-xs font-mono font-semibold text-text">All commitments & debts cleared for {getMonthDisplayName(selectedMonthYear)}! 🎉</p>
                 <p className="text-[10px] font-mono text-text-muted mt-0.5">
-                  Add recurring commitments with start/end date ranges and due days.
+                  0 pending obligations for this month.
                 </p>
               </div>
             ) : (
               <div className="space-y-2.5">
-                {repeatingCosts.map((cost) => (
+                {/* Pending Repeating Costs */}
+                {pendingRepeatingCosts.map((cost) => (
                   <div
-                    key={cost.id}
-                    className={`p-3 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                      cost.isPaid ? "border-border/60 bg-surface/50" : "border-border"
-                    }`}
+                    key={`cost-${cost.id}`}
+                    className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <button
                         onClick={() => handleToggleMonthlyPayment(cost)}
-                        className={`interactive-tap w-6 h-6 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                          cost.isPaid ? "border-text bg-surface" : "border-border hover:border-text bg-bg"
-                        }`}
-                        title={cost.isPaid ? "Mark unpaid" : "Mark paid for this month"}
+                        className="interactive-tap w-6 h-6 rounded-md border border-border hover:border-text bg-bg flex items-center justify-center shrink-0 mt-0.5 transition-all"
+                        title="Mark paid for this month"
                       >
-                        {cost.isPaid ? (
-                          <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </span>
-                        ) : (
-                          <span className="w-4 h-4 rounded-full border border-border/90 hover:border-text/60 transition-colors" />
-                        )}
+                        <span className="w-4 h-4 rounded-full border border-border/90 hover:border-text/60 transition-colors" />
                       </button>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className={`text-xs font-semibold truncate ${cost.isPaid ? "line-through text-text-muted" : "text-text"}`}>
+                          <h4 className="text-xs font-semibold text-text truncate">
                             {cost.title}
                           </h4>
                           <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
                             {cost.category}
+                          </span>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                            Monthly
                           </span>
                         </div>
 
@@ -1979,9 +2115,6 @@ export const FinancePage: React.FC = () => {
                           <span>
                             Contract: {cost.startDate} → {cost.endDate || "Ongoing"}
                           </span>
-                          {cost.isPaid && cost.paidDate && (
-                            <span className="text-text">Paid on {cost.paidDate}</span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1994,27 +2127,118 @@ export const FinancePage: React.FC = () => {
                         <span className="text-[9px] font-mono text-text-muted">per month</span>
                       </div>
 
-                      {isEditMode && (
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggleMonthlyPayment(cost)}
+                          className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          Pay
+                        </button>
+
+                        {isEditMode && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingMonthlyCost(cost);
+                                setIsMonthlyCostModalOpen(true);
+                              }}
+                              className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                              title="Edit Cost Contract"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMonthlyCost(cost.id)}
+                              className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                              title="Delete Cost Contract"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Pending Dena (Debts to pay this month) */}
+                {pendingDenaThisMonth.map((d) => (
+                  <div
+                    key={`dena-${d.id}`}
+                    className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <button
+                        onClick={() => {
+                          setActiveDebtForPayment(d);
+                          setDebtPayAmount(String(d.remainingAmount));
+                          setIsDebtPaymentModalOpen(true);
+                        }}
+                        className="interactive-tap w-6 h-6 rounded-md border border-border hover:border-text bg-bg flex items-center justify-center shrink-0 mt-0.5 transition-all"
+                        title="Record payment for this debt"
+                      >
+                        <span className="w-4 h-4 rounded-full border border-border/90 hover:border-text/60 transition-colors" />
+                      </button>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-semibold text-text truncate">
+                            {d.personName}
+                          </h4>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                            Dena
+                          </span>
+                          {d.status === "PARTIAL" && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-surface-hover text-text border border-border rounded-xs">
+                              Partial (৳{d.paidAmount} paid)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-1">
+                          <span>Due date: {d.dueDate}</span>
+                          {d.contactNumber && <span>Phone: {d.contactNumber}</span>}
+                          {d.notes && <span>Notes: {d.notes}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                      <div className="text-right">
+                        <span className="text-sm font-mono font-bold text-text block">
+                          {formatCurrency(d.remainingAmount)}
+                        </span>
+                        <span className="text-[9px] font-mono text-text-muted">
+                          Total: {formatCurrency(d.totalAmount)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setActiveDebtForPayment(d);
+                            setDebtPayAmount(String(d.remainingAmount));
+                            setIsDebtPaymentModalOpen(true);
+                          }}
+                          className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          Pay
+                        </button>
+
+                        {isEditMode && (
                           <button
                             onClick={() => {
-                              setEditingMonthlyCost(cost);
-                              setIsMonthlyCostModalOpen(true);
+                              setEditingDebt(d);
+                              setDebtModalType("I_OWE");
+                              setIsDebtModalOpen(true);
                             }}
                             className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
-                            title="Edit Cost Contract"
+                            title="Edit Dena"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteMonthlyCost(cost.id)}
-                            className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
-                            title="Delete Cost Contract"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2023,31 +2247,143 @@ export const FinancePage: React.FC = () => {
           </div>
 
           {/* ----------------------------------------------------------- */}
-          {/* TYPE 2: DAILY COSTS (LOGGED FOR THIS MONTH)                 */}
+          {/* SECTION 2: PAID & LOGGED COSTS                              */}
           {/* ----------------------------------------------------------- */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between pb-1 border-b border-border">
               <div className="flex items-center gap-2">
-                <ArrowUpRight className="w-4 h-4 text-text" />
+                <CheckCircle2 className="w-4 h-4 text-text" />
                 <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                  2. Daily Costs
+                  Paid & Logged Costs
                 </h3>
               </div>
             </div>
 
-            {dailyCosts.length === 0 ? (
+            {paidRepeatingCosts.length === 0 && denaPaymentsThisMonth.length === 0 && dailyCosts.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center text-center bg-surface border border-border rounded-md">
                 <ArrowUpRight className="w-7 h-7 text-text-muted mb-1.5" />
-                <p className="text-xs font-mono text-text">No daily costs logged for {getMonthDisplayName(selectedMonthYear)} yet.</p>
-                <p className="text-[10px] font-mono text-text-muted mt-0.5">
-                  Enter daily costs from the Overview tab (Quick Cost) to record daily expenses.
-                </p>
+                <p className="text-xs font-mono text-text">No paid expenses or debt repayments logged for {getMonthDisplayName(selectedMonthYear)} yet.</p>
               </div>
             ) : (
               <div className="space-y-2">
+                {/* Paid Repeating Costs */}
+                {paidRepeatingCosts.map((cost) => (
+                  <div
+                    key={`paid-cost-${cost.id}`}
+                    className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <button
+                        onClick={() => handleToggleMonthlyPayment(cost)}
+                        className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                        title="Click to revert to unpaid and restore account balance"
+                      >
+                        <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      </button>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-semibold text-text truncate">
+                            {cost.title}
+                          </h4>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                            {cost.category}
+                          </span>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                            Monthly
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-1">
+                          {cost.paidDate && <span>Paid on: {cost.paidDate}</span>}
+                          {cost.paidFromAccountId && (
+                            <span>
+                              Paid from: {accounts.find((a) => a.id === cost.paidFromAccountId)?.name || "Account"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                      <div className="text-right">
+                        <span className="text-sm font-mono font-bold text-text block">
+                          {formatCurrency(cost.amount)}
+                        </span>
+                        <span className="text-[9px] font-mono text-text-muted">paid monthly</span>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleMonthlyPayment(cost)}
+                        className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                        title="Revert payment"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Dena Payments logged this month */}
+                {denaPaymentsThisMonth.map((p) => (
+                  <div
+                    key={`dena-payment-${p.paymentId}`}
+                    className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <button
+                        onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
+                        className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                        title="Click to undo debt payment and restore balance"
+                      >
+                        <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      </button>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-semibold text-text truncate">
+                            Repaid: {p.personName}
+                          </h4>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                            Dena Repayment
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-1">
+                          <span>Paid on: {p.date}</span>
+                          <span>Paid from: {p.accountName || "Account"}</span>
+                          {p.notes && <span>Notes: {p.notes}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                      <div className="text-right">
+                        <span className="text-sm font-mono font-bold text-text block">
+                          {formatCurrency(p.amount)}
+                        </span>
+                        <span className="text-[9px] font-mono text-text-muted">debt payment</span>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
+                        className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-red-400 hover:bg-bg"
+                        title="Undo payment"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Daily Costs */}
                 {dailyCosts.map((cost) => (
                   <div
-                    key={cost.id}
+                    key={`daily-${cost.id}`}
                     className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
                     <div className="flex items-start gap-3 min-w-0">
@@ -2155,57 +2491,72 @@ export const FinancePage: React.FC = () => {
                 <div>
                   <span className="text-[10px] uppercase font-mono text-text-muted block">Total</span>
                   <span className="text-sm font-bold font-mono text-text">
-                    {formatCurrency(totalThisMonthExpectedIncome)}
+                    {formatCurrency(totalThisMonthExpectedIncomeCalculated)}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-mono text-text-muted block">On Pending</span>
                   <span className="text-sm font-bold font-mono text-text">
-                    {formatCurrency(totalPendingInflows)}
+                    {formatCurrency(totalPendingInflowsCalculated)}
                   </span>
                 </div>
               </div>
 
               {isEditMode && (
-                <button
-                  onClick={() => {
-                    setEditingInflow(null);
-                    setIsInflowModalOpen(true);
-                  }}
-                  className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 transition-opacity"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Income</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingInflow(null);
+                      setIsInflowModalOpen(true);
+                    }}
+                    className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>New Income</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDebtModalType("OWES_ME");
+                      setEditingDebt(null);
+                      setIsDebtModalOpen(true);
+                    }}
+                    className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-surface text-text font-mono text-xs font-semibold hover:border-text transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Add Paona</span>
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* 1. Monthly Recurring Incomes */}
+            {/* ----------------------------------------------------------- */}
+            {/* SECTION 1: TO RECEIVE THIS MONTH (INCOMES & PAONA)          */}
+            {/* ----------------------------------------------------------- */}
             <div className="space-y-3">
               <div className="flex items-center justify-between pb-1 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-text" />
+                  <Clock className="w-4 h-4 text-text" />
                   <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                    Monthly Recurring Incomes
+                    To Receive This Month
                   </h3>
                 </div>
               </div>
 
-              {repeatingIncomes.length === 0 ? (
-                <div className="p-4 bg-surface border border-border rounded-md text-center">
-                  <p className="text-xs font-mono text-text">No recurring incomes active for {getMonthDisplayName(selectedMonthYear)}.</p>
-                  <p className="text-[10px] font-mono text-text-muted mt-1">
-                    Add salary, recurring client retainer, rent receivables, etc.
+              {pendingRepeatingIncomes.length === 0 && pendingOneTimeIncomes.length === 0 && pendingPaonaThisMonth.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center text-center bg-surface border border-border rounded-md">
+                  <Check className="w-7 h-7 text-text mb-1.5" />
+                  <p className="text-xs font-mono font-semibold text-text">All expected incomes & receivables collected for {getMonthDisplayName(selectedMonthYear)}! 🎉</p>
+                  <p className="text-[10px] font-mono text-text-muted mt-0.5">
+                    0 pending inflows or receivables for this month.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {repeatingIncomes.map((inf) => (
+                  {/* Pending Repeating Incomes */}
+                  {pendingRepeatingIncomes.map((inf) => (
                     <div
-                      key={inf.id}
-                      className={`p-3.5 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        inf.isReceived ? "border-border/60 bg-surface/50 opacity-70" : "border-border"
-                      }`}
+                      key={`inf-rep-${inf.id}`}
+                      className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -2228,7 +2579,6 @@ export const FinancePage: React.FC = () => {
 
                         <span className="text-[10px] font-mono text-text-muted block mt-1">
                           Monthly around {inf.dueDay}th of month
-                          {inf.isReceived && inf.receivedDate ? ` • Received on ${inf.receivedDate}` : ""}
                         </span>
                       </div>
 
@@ -2238,18 +2588,16 @@ export const FinancePage: React.FC = () => {
                         </span>
 
                         <div className="flex items-center gap-2">
-                          {!inf.isReceived && (
-                            <button
-                              onClick={() => {
-                                setActiveInflowForReceive(inf);
-                                setReceiveAccountId(accounts[0]?.id || "");
-                                setIsReceiveInflowModalOpen(true);
-                              }}
-                              className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
-                            >
-                              Mark Received
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setActiveInflowForReceive(inf);
+                              setReceiveAccountId(accounts[0]?.id || "");
+                              setIsReceiveInflowModalOpen(true);
+                            }}
+                            className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            Collect
+                          </button>
 
                           {isEditMode && (
                             <>
@@ -2263,7 +2611,6 @@ export const FinancePage: React.FC = () => {
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
-
                               <button
                                 onClick={() => handleDeleteInflow(inf.id)}
                                 className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
@@ -2277,59 +2624,34 @@ export const FinancePage: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
 
-            {/* 2. One-Time & Quick Incomes */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-1 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-text" />
-                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                    One-Time & Quick Incomes
-                  </h3>
-                </div>
-              </div>
-
-              {oneTimeIncomes.length === 0 ? (
-                <div className="p-4 bg-surface border border-border rounded-md text-center">
-                  <p className="text-xs font-mono text-text">No one-time or quick incomes logged for {getMonthDisplayName(selectedMonthYear)}.</p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {oneTimeIncomes.map((inf) => (
+                  {/* Pending One-Time Incomes */}
+                  {pendingOneTimeIncomes.map((inf) => (
                     <div
-                      key={inf.id}
-                      className={`p-3.5 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        inf.isReceived ? "border-border/60 bg-surface/50 opacity-70" : "border-border"
-                      }`}
+                      key={`inf-onetime-${inf.id}`}
+                      className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-text">{inf.title}</span>
                           <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
-                            {inf.isQuickInflow ? "Quick Income" : "One-Time"}
+                            One-Time
                           </span>
-                          {!inf.isQuickInflow && (
-                            <span
-                              className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
-                                inf.confidence === "CERTAIN"
-                                  ? "bg-text/10 text-text font-semibold"
-                                  : inf.confidence === "PROBABLE"
-                                  ? "bg-surface text-text-muted border border-border"
-                                  : "bg-surface text-text-muted/60 border border-border/50"
-                              }`}
-                            >
-                              {inf.confidence}
-                            </span>
-                          )}
+                          <span
+                            className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
+                              inf.confidence === "CERTAIN"
+                                ? "bg-text/10 text-text font-semibold"
+                                : inf.confidence === "PROBABLE"
+                                ? "bg-surface text-text-muted border border-border"
+                                : "bg-surface text-text-muted/60 border border-border/50"
+                            }`}
+                          >
+                            {inf.confidence}
+                          </span>
                         </div>
 
                         <span className="text-[10px] font-mono text-text-muted block mt-1">
-                          {inf.isQuickInflow
-                            ? `Logged: ${inf.expectedDateStr || inf.receivedDate} • Deposited to: ${inf.depositToAccountName || accounts.find((a) => a.id === inf.depositToAccountId)?.name || "Account"}`
-                            : `Expected: ${inf.expectedDateStr || "Pending"}${inf.isReceived && inf.receivedDate ? ` • Received on ${inf.receivedDate}` : ""}`}
+                          Expected date: {inf.expectedDateStr || "Pending"}
                         </span>
                       </div>
 
@@ -2339,50 +2661,299 @@ export const FinancePage: React.FC = () => {
                         </span>
 
                         <div className="flex items-center gap-2">
-                          {!inf.isReceived && (
-                            <button
-                              onClick={() => {
-                                setActiveInflowForReceive(inf);
-                                setReceiveAccountId(accounts[0]?.id || "");
-                                setIsReceiveInflowModalOpen(true);
-                              }}
-                              className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
-                            >
-                              Mark Received
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setActiveInflowForReceive(inf);
+                              setReceiveAccountId(accounts[0]?.id || "");
+                              setIsReceiveInflowModalOpen(true);
+                            }}
+                            className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            Collect
+                          </button>
 
                           {isEditMode && (
                             <>
-                              {!inf.isQuickInflow && (
-                                <button
-                                  onClick={() => {
-                                    setEditingInflow(inf);
-                                    setIsInflowModalOpen(true);
-                                  }}
-                                  className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
-                                  title="Edit Inflow"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-
                               <button
                                 onClick={() => {
-                                  if (inf.isQuickInflow) {
-                                    handleDeleteQuickInflow(inf.id);
-                                  } else {
-                                    handleDeleteInflow(inf.id);
-                                  }
+                                  setEditingInflow(inf);
+                                  setIsInflowModalOpen(true);
                                 }}
+                                className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                                title="Edit Inflow"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteInflow(inf.id)}
                                 className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
-                                title={inf.isQuickInflow ? "Delete quick income and deduct balance" : "Delete Inflow"}
+                                title="Delete Inflow"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Pending Paona (Receivables to collect this month) */}
+                  {pendingPaonaThisMonth.map((p) => (
+                    <div
+                      key={`paona-${p.id}`}
+                      className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-text">{p.personName}</span>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                            Paona
+                          </span>
+                          {p.status === "PARTIAL" && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-surface-hover text-text border border-border rounded-xs">
+                              Partial (৳{p.paidAmount} collected)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-1">
+                          <span>Due date: {p.dueDate}</span>
+                          {p.contactNumber && <span>Phone: {p.contactNumber}</span>}
+                          {p.notes && <span>Notes: {p.notes}</span>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                        <div className="text-right">
+                          <span className="text-sm font-mono font-bold text-text block">
+                            {formatCurrency(p.remainingAmount)}
+                          </span>
+                          <span className="text-[9px] font-mono text-text-muted">
+                            Total: {formatCurrency(p.totalAmount)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setActiveDebtForPayment(p);
+                              setDebtPayAmount(String(p.remainingAmount));
+                              setIsDebtPaymentModalOpen(true);
+                            }}
+                            className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            Collect
+                          </button>
+
+                          {isEditMode && (
+                            <button
+                              onClick={() => {
+                                setEditingDebt(p);
+                                setDebtModalType("OWES_ME");
+                                setIsDebtModalOpen(true);
+                              }}
+                              className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                              title="Edit Paona"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ----------------------------------------------------------- */}
+            {/* SECTION 2: RECEIVED & DEPOSITED INFLOWS                     */}
+            {/* ----------------------------------------------------------- */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between pb-1 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-text" />
+                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
+                    Received & Deposited Inflows
+                  </h3>
+                </div>
+              </div>
+
+              {receivedRepeatingIncomes.length === 0 && receivedOneTimeIncomes.length === 0 && paonaCollectionsThisMonth.length === 0 ? (
+                <div className="p-4 bg-surface border border-border rounded-md text-center">
+                  <p className="text-xs font-mono text-text">No inflows or receivable collections deposited for {getMonthDisplayName(selectedMonthYear)} yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Received Repeating Incomes */}
+                  {receivedRepeatingIncomes.map((inf) => (
+                    <div
+                      key={`rec-rep-${inf.id}`}
+                      className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <button
+                          onClick={() => handleRevertInflow(inf.id)}
+                          className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                          title="Click to revert to pending and deduct balance"
+                        >
+                          <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        </button>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-text">{inf.title}</span>
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                              Monthly
+                            </span>
+                          </div>
+
+                          <span className="text-[10px] font-mono text-text-muted block mt-1">
+                            {inf.receivedDate ? `Received on ${inf.receivedDate}` : "Received"}
+                            {inf.depositToAccountId && (
+                              <span> • Deposited to: {accounts.find((a) => a.id === inf.depositToAccountId)?.name || "Account"}</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                        <div className="text-right">
+                          <span className="text-sm font-mono font-bold text-text block">
+                            {formatCurrency(inf.amount)}
+                          </span>
+                          <span className="text-[9px] font-mono text-text-muted">monthly received</span>
+                        </div>
+
+                        <button
+                          onClick={() => handleRevertInflow(inf.id)}
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                          title="Revert to pending"
+                        >
+                          <Undo2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Received One-Time & Quick Incomes */}
+                  {receivedOneTimeIncomes.map((inf) => (
+                    <div
+                      key={`rec-onetime-${inf.id}`}
+                      className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className="w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                          title="Inflow received and deposited"
+                        >
+                          <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </span>
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-text">{inf.title}</span>
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                              {inf.isQuickInflow ? "Quick Income" : "One-Time"}
+                            </span>
+                          </div>
+
+                          <span className="text-[10px] font-mono text-text-muted block mt-1">
+                            {inf.isQuickInflow
+                              ? `Logged: ${inf.expectedDateStr || inf.receivedDate} • Deposited to: ${inf.depositToAccountName || accounts.find((a) => a.id === inf.depositToAccountId)?.name || "Account"}`
+                              : `Received on ${inf.receivedDate || "this month"}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                        <div className="text-right">
+                          <span className="text-sm font-mono font-bold text-text block">
+                            {formatCurrency(inf.amount)}
+                          </span>
+                          <span className="text-[9px] font-mono text-text-muted">
+                            {inf.isQuickInflow ? "quick income" : "received"}
+                          </span>
+                        </div>
+
+                        {inf.isQuickInflow ? (
+                          isEditMode && (
+                            <button
+                              onClick={() => handleDeleteQuickInflow(inf.id)}
+                              className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                              title="Delete quick income and deduct balance"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={() => handleRevertInflow(inf.id)}
+                            className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                            title="Revert to pending"
+                          >
+                            <Undo2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Paona Collections logged this month */}
+                  {paonaCollectionsThisMonth.map((p) => (
+                    <div
+                      key={`paona-collection-${p.paymentId}`}
+                      className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <button
+                          onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
+                          className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                          title="Click to undo collection and deduct balance"
+                        >
+                          <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        </button>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-semibold text-text truncate">
+                              Collected: {p.personName}
+                            </h4>
+                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-text/10 text-text font-semibold border border-border rounded-xs">
+                              Paona Collection
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-1">
+                            <span>Collected on: {p.date}</span>
+                            <span>Deposited to: {p.accountName || "Account"}</span>
+                            {p.notes && <span>Notes: {p.notes}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
+                        <div className="text-right">
+                          <span className="text-sm font-mono font-bold text-text block">
+                            {formatCurrency(p.amount)}
+                          </span>
+                          <span className="text-[9px] font-mono text-text-muted">receivable collection</span>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-red-400 hover:bg-bg"
+                          title="Undo collection"
+                        >
+                          <Undo2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2908,7 +3479,17 @@ export const FinancePage: React.FC = () => {
                             <span className="text-[10px] text-text-muted block truncate">{log.notes}</span>
                           )}
                         </div>
-                        <span className="text-[10px] text-text-muted shrink-0 ml-2">{log.date}</span>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-[10px] text-text-muted">{log.date}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDebtPaymentLog(selectedDebtForDetail.id, log.id)}
+                            className="interactive-tap p-1 rounded-xs text-text-muted hover:text-red-400 hover:bg-surface transition-colors"
+                            title="Undo this payment and restore balance"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -3027,12 +3608,13 @@ export const FinancePage: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-mono text-text-muted block mb-1">
-                    {debtModalType === "I_OWE" ? "Payment Due Date" : "Expected Collection Date"}
+                    {debtModalType === "I_OWE" ? "Payment Due Date *" : "Expected Collection Date *"}
                   </label>
                   <input
                     type="date"
                     name="dueDate"
                     defaultValue={editingDebt?.dueDate || ""}
+                    required
                     className="w-full bg-bg border border-border rounded-xs px-3 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-text"
                   />
                 </div>

@@ -11,6 +11,7 @@ import {
   updateDebt,
   deleteDebt,
   recordDebtPayment,
+  deleteDebtPaymentLog,
   createMonthlyCommitment,
   updateMonthlyCommitment,
   deleteMonthlyCommitment,
@@ -19,6 +20,7 @@ import {
   updateExpectedInflow,
   deleteExpectedInflow,
   markInflowReceived,
+  revertInflowReceived,
   createSavingsVault,
   updateSavingsVault,
   deleteSavingsVault,
@@ -47,6 +49,7 @@ router.post("/debts", createDebt);
 router.put("/debts/:id", updateDebt);
 router.delete("/debts/:id", deleteDebt);
 router.post("/debts/:id/pay", recordDebtPayment);
+router.delete("/debts/:id/payments/:paymentId", deleteDebtPaymentLog);
 
 // 4. Monthly Costs
 router.post("/monthly-costs", createMonthlyCommitment);
@@ -59,6 +62,7 @@ router.post("/inflows", createExpectedInflow);
 router.put("/inflows/:id", updateExpectedInflow);
 router.delete("/inflows/:id", deleteExpectedInflow);
 router.post("/inflows/:id/received", markInflowReceived);
+router.post("/inflows/:id/revert", revertInflowReceived);
 
 // 6. Savings Vaults
 router.post("/vaults", createSavingsVault);
