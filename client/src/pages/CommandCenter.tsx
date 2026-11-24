@@ -469,6 +469,7 @@ export const CommandCenter: React.FC = () => {
 
                     <CheckboxTick
                       shape="circle"
+                      size="sm"
                       checked={prayer.isDone}
                       isLocked={isTodayLocked}
                       onChange={() => togglePrayer(prayer.key)}
@@ -522,6 +523,7 @@ export const CommandCenter: React.FC = () => {
 
                     <CheckboxTick
                       shape="circle"
+                      size="sm"
                       checked={habit.isDone}
                       isLocked={isTodayLocked}
                       onChange={() => toggleHabit(habit.id)}

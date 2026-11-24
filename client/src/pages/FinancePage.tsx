@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Wallet,
   ArrowRightLeft,
@@ -18,6 +19,7 @@ import {
   Smartphone,
   Landmark,
   Banknote,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -229,6 +231,7 @@ export const FinancePage: React.FC = () => {
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [debtModalType, setDebtModalType] = useState<"I_OWE" | "OWES_ME">("I_OWE");
   const [editingDebt, setEditingDebt] = useState<DebtItem | null>(null);
+  const [selectedDebtForDetail, setSelectedDebtForDetail] = useState<DebtItem | null>(null);
 
   const [isDebtPaymentModalOpen, setIsDebtPaymentModalOpen] = useState(false);
   const [activeDebtForPayment, setActiveDebtForPayment] = useState<DebtItem | null>(null);
@@ -885,11 +888,30 @@ export const FinancePage: React.FC = () => {
 
   const { summary, accounts, denaList, paonaList, monthlyCosts, expectedInflows, savingsVaults } = data;
 
-  // Combine unsettled Dena & Paona for the overview card (sorted oldest first)
+  // Helper: Sort Debts by fast due date (earliest due date first, unsettled before settled)
+  const sortDebtsByFastDueDate = (list: DebtItem[]) =>
+    [...list].sort((a, b) => {
+      if (a.status === "SETTLED" && b.status !== "SETTLED") return 1;
+      if (a.status !== "SETTLED" && b.status === "SETTLED") return -1;
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+  const sortedDenaList = sortDebtsByFastDueDate(denaList);
+  const sortedPaonaList = sortDebtsByFastDueDate(paonaList);
+
+  // Combine unsettled Dena & Paona for the overview card (sorted by fast due date first)
   const allUnsettledDebts = [
     ...denaList.filter((d) => d.status !== "SETTLED"),
     ...paonaList.filter((d) => d.status !== "SETTLED"),
-  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  ].sort((a, b) => {
+    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
 
   // Monthly Costs sorted by oldest first (dueDateStr or startDate)
   const sortedMonthlyCosts = [...monthlyCosts].sort((a, b) => {
@@ -918,6 +940,24 @@ export const FinancePage: React.FC = () => {
   );
   const dailyCosts = monthlyCosts.filter(
     (c) => c.costType === "DAILY_COST" || c.isQuickCost
+  );
+
+  // Monthly Incomes breakdown: Repeating vs One-Time / Quick Incomes
+  const repeatingIncomes = expectedInflows.filter(
+    (inf) => inf.inflowType === "MONTHLY"
+  );
+  const oneTimeIncomes = expectedInflows.filter(
+    (inf) => inf.inflowType === "ONE_TIME" || inf.isQuickInflow
+  );
+  const totalReceivedInflows = expectedInflows
+    .filter((inf) => inf.isReceived)
+    .reduce((sum, inf) => sum + inf.amount, 0);
+  const totalPendingInflows = expectedInflows
+    .filter((inf) => !inf.isReceived)
+    .reduce((sum, inf) => sum + inf.amount, 0);
+  const totalThisMonthExpectedIncome = expectedInflows.reduce(
+    (sum, inf) => sum + inf.amount,
+    0
   );
 
   const netAmount =
@@ -1032,7 +1072,7 @@ export const FinancePage: React.FC = () => {
           { key: "accounts", label: "Accounts" },
           { key: "debts", label: "Dena & Paona" },
           { key: "monthly", label: "Monthly Costs" },
-          { key: "inflows", label: "Expected Inflows" },
+          { key: "inflows", label: "Monthly Income" },
           { key: "vaults", label: "Savings Vaults" },
         ].map((tab) => (
           <button
@@ -1285,7 +1325,7 @@ export const FinancePage: React.FC = () => {
               {accounts.length === 0 ? (
                 <p className="text-xs font-mono text-text-muted py-4 text-center">No accounts set up yet.</p>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto pr-1">
+                <div className="max-h-[320px] overflow-y-auto pr-1.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {sortedAccounts.map((acc) => (
                       <div key={acc.id} className="p-2.5 bg-bg border border-border rounded-md flex items-center justify-between">
@@ -1326,7 +1366,7 @@ export const FinancePage: React.FC = () => {
                   No active monthly obligations for this month.
                 </p>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2">
+                <div className="max-h-[320px] overflow-y-auto pr-1.5 space-y-2">
                   {sortedMonthlyCosts.map((cost) => (
                     <div
                       key={cost.id}
@@ -1375,9 +1415,13 @@ export const FinancePage: React.FC = () => {
               {allUnsettledDebts.length === 0 ? (
                 <p className="text-xs font-mono text-text-muted py-6 text-center">No pending Dena or Paona. All settled!</p>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2">
+                <div className="max-h-[320px] overflow-y-auto pr-1.5 space-y-2">
                   {allUnsettledDebts.map((d) => (
-                    <div key={d.id} className="p-2.5 bg-bg border border-border rounded-md flex items-center justify-between gap-3">
+                    <div
+                      key={d.id}
+                      onClick={() => setSelectedDebtForDetail(d)}
+                      className="p-2.5 bg-bg border border-border rounded-md flex items-center justify-between gap-3 cursor-pointer hover:border-text/60 transition-all interactive-tap"
+                    >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-text truncate">{d.personName}</span>
@@ -1417,7 +1461,7 @@ export const FinancePage: React.FC = () => {
               {sortedVaults.length === 0 ? (
                 <p className="text-xs font-mono text-text-muted py-6 text-center">No saving vaults created yet.</p>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto pr-1 space-y-3">
+                <div className="max-h-[320px] overflow-y-auto pr-1.5 space-y-3">
                   {sortedVaults.map((vault) => (
                     <div key={vault.id} className="p-2.5 bg-bg border border-border rounded-md space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -1589,14 +1633,15 @@ export const FinancePage: React.FC = () => {
                 </span>
               </div>
 
-              {denaList.length === 0 ? (
+              {sortedDenaList.length === 0 ? (
                 <p className="text-xs font-mono text-text-muted py-8 text-center">No Dena recorded. You are debt-free!</p>
               ) : (
-                <div className="space-y-2.5">
-                  {denaList.map((d) => (
+                <div className="max-h-[460px] overflow-y-auto pr-1.5 space-y-2.5">
+                  {sortedDenaList.map((d) => (
                     <div
                       key={d.id}
-                      className={`p-3 bg-bg border rounded-md space-y-2 ${
+                      onClick={() => setSelectedDebtForDetail(d)}
+                      className={`p-3 bg-bg border rounded-md space-y-2 cursor-pointer hover:border-text/60 transition-all interactive-tap ${
                         d.status === "SETTLED" ? "border-border/40 opacity-60" : "border-border"
                       }`}
                     >
@@ -1644,7 +1689,8 @@ export const FinancePage: React.FC = () => {
                         {isEditMode ? (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingDebt(d);
                                 setDebtModalType("I_OWE");
                                 setIsDebtModalOpen(true);
@@ -1654,7 +1700,10 @@ export const FinancePage: React.FC = () => {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDeleteDebt(d.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDebt(d.id);
+                              }}
                               className="text-[10px] font-mono text-text-muted hover:text-text"
                             >
                               Delete
@@ -1666,7 +1715,8 @@ export const FinancePage: React.FC = () => {
 
                         {d.status !== "SETTLED" && (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveDebtForPayment(d);
                               setDebtPayAmount(String(d.remainingAmount));
                               setIsDebtPaymentModalOpen(true);
@@ -1695,14 +1745,15 @@ export const FinancePage: React.FC = () => {
                 </span>
               </div>
 
-              {paonaList.length === 0 ? (
+              {sortedPaonaList.length === 0 ? (
                 <p className="text-xs font-mono text-text-muted py-8 text-center">No Paona recorded.</p>
               ) : (
-                <div className="space-y-2.5">
-                  {paonaList.map((d) => (
+                <div className="max-h-[460px] overflow-y-auto pr-1.5 space-y-2.5">
+                  {sortedPaonaList.map((d) => (
                     <div
                       key={d.id}
-                      className={`p-3 bg-bg border rounded-md space-y-2 ${
+                      onClick={() => setSelectedDebtForDetail(d)}
+                      className={`p-3 bg-bg border rounded-md space-y-2 cursor-pointer hover:border-text/60 transition-all interactive-tap ${
                         d.status === "SETTLED" ? "border-border/40 opacity-60" : "border-border"
                       }`}
                     >
@@ -1750,7 +1801,8 @@ export const FinancePage: React.FC = () => {
                         {isEditMode ? (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingDebt(d);
                                 setDebtModalType("OWES_ME");
                                 setIsDebtModalOpen(true);
@@ -1760,7 +1812,10 @@ export const FinancePage: React.FC = () => {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDeleteDebt(d.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDebt(d.id);
+                              }}
                               className="text-[10px] font-mono text-text-muted hover:text-text"
                             >
                               Delete
@@ -1772,7 +1827,8 @@ export const FinancePage: React.FC = () => {
 
                         {d.status !== "SETTLED" && (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveDebtForPayment(d);
                               setDebtPayAmount(String(d.remainingAmount));
                               setIsDebtPaymentModalOpen(true);
@@ -2091,133 +2147,311 @@ export const FinancePage: React.FC = () => {
     )}
 
       {/* ============================================================= */}
-      {/* TAB: EXPECTED INFLOWS                                         */}
+      {/* TAB: MONTHLY INCOME                                           */}
       {/* ============================================================= */}
       {activeTab === "inflows" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xs font-mono uppercase tracking-wider text-text font-semibold">
-                Expected Inflows & Coming Money
+                Monthly Income Overview
               </h2>
               <p className="text-[11px] font-mono text-text-muted mt-0.5">
-                Monthly recurring streams or one-time probable collections
+                Active for {getMonthDisplayName(selectedMonthYear)} • Recurring Incomes & One-Time Collections
               </p>
             </div>
 
-            {isEditMode && (
+            {/* Month Selector Pill */}
+            <div className="flex items-center bg-surface border border-border rounded-md px-1 py-0.5 self-start sm:self-auto">
               <button
-                onClick={() => {
-                  setEditingInflow(null);
-                  setIsInflowModalOpen(true);
-                }}
-                className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 transition-opacity"
+                onClick={handlePrevMonth}
+                className="interactive-tap p-1.5 text-text-muted hover:text-text hover:bg-bg rounded-xs transition-colors"
+                title="Previous Month"
+                aria-label="Previous month"
               >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>New Inflow</span>
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-            )}
+              <button
+                onClick={handleCurrentMonth}
+                className="px-2 py-1 text-xs font-mono text-text hover:bg-bg rounded-xs transition-colors"
+                title="Jump to Current Month"
+              >
+                {getMonthDisplayName(selectedMonthYear)}
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="interactive-tap p-1.5 text-text-muted hover:text-text hover:bg-bg rounded-xs transition-colors"
+                title="Next Month"
+                aria-label="Next month"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          {expectedInflows.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-center bg-surface border border-border rounded-md">
-              <CalendarIcon className="w-8 h-8 text-text-muted mb-2" />
-              <p className="text-xs font-mono text-text">No expected inflows recorded.</p>
-              <p className="text-[10px] font-mono text-text-muted mt-1">
-                Add monthly salaries, freelance payouts, or repayments you are expecting.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {expectedInflows.map((inf) => (
-                <div
-                  key={inf.id}
-                  className={`p-3.5 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    inf.isReceived ? "border-border/60 bg-surface/50 opacity-70" : "border-border"
-                  }`}
+          <AnimatedSlideView slideKey={animKey} direction={slideDirection} className="space-y-6">
+            {/* Month Summary Bar */}
+            <div className="p-3.5 bg-surface border border-border rounded-md flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-6">
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">This Month's Expected</span>
+                  <span className="text-sm font-bold font-mono text-text">
+                    {formatCurrency(totalThisMonthExpectedIncome)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Received / Deposited</span>
+                  <span className="text-sm font-bold font-mono text-text">
+                    {formatCurrency(totalReceivedInflows)}
+                  </span>
+                  <span className="text-[9px] font-mono text-text-muted block">
+                    {expectedInflows.filter((i) => i.isReceived).length} of {expectedInflows.length} received
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Pending / Due</span>
+                  <span className="text-sm font-bold font-mono text-text">
+                    {formatCurrency(totalPendingInflows)}
+                  </span>
+                </div>
+              </div>
+
+              {isEditMode && (
+                <button
+                  onClick={() => {
+                    setEditingInflow(null);
+                    setIsInflowModalOpen(true);
+                  }}
+                  className="interactive-tap flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 transition-opacity"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-text">{inf.title}</span>
-                      <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
-                        {inf.inflowType}
-                      </span>
-                      <span
-                        className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
-                          inf.confidence === "CERTAIN"
-                            ? "bg-text/10 text-text font-semibold"
-                            : inf.confidence === "PROBABLE"
-                            ? "bg-surface text-text-muted border border-border"
-                            : "bg-surface text-text-muted/60 border border-border/50"
-                        }`}
-                      >
-                        {inf.confidence}
-                      </span>
-                    </div>
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>New Income</span>
+                </button>
+              )}
+            </div>
 
-                    <span className="text-[10px] font-mono text-text-muted block mt-1">
-                      {inf.inflowType === "MONTHLY"
-                        ? `Monthly around ${inf.dueDay}th of month`
-                        : `Expected: ${inf.expectedDateStr || "Pending"}`}
-                      {inf.isReceived && inf.receivedDate ? ` • Received on ${inf.receivedDate}` : ""}
-                    </span>
-                  </div>
+            {/* 1. Monthly Recurring Incomes */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4 text-text" />
+                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
+                    Monthly Recurring Incomes
+                  </h3>
+                  <span className="text-[10px] font-mono text-text-muted">
+                    ({repeatingIncomes.length})
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-text">
+                  Total: {formatCurrency(repeatingIncomes.reduce((acc, c) => acc + c.amount, 0))}
+                </span>
+              </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-                    <span className="text-sm font-mono font-bold text-text">
-                      {formatCurrency(inf.amount)}
-                    </span>
+              {repeatingIncomes.length === 0 ? (
+                <div className="p-4 bg-surface border border-border rounded-md text-center">
+                  <p className="text-xs font-mono text-text">No recurring incomes active for {getMonthDisplayName(selectedMonthYear)}.</p>
+                  <p className="text-[10px] font-mono text-text-muted mt-1">
+                    Add salary, recurring client retainer, rent receivables, etc.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {repeatingIncomes.map((inf) => (
+                    <div
+                      key={inf.id}
+                      className={`p-3.5 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        inf.isReceived ? "border-border/60 bg-surface/50 opacity-70" : "border-border"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-text">{inf.title}</span>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                            Monthly
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
+                              inf.confidence === "CERTAIN"
+                                ? "bg-text/10 text-text font-semibold"
+                                : inf.confidence === "PROBABLE"
+                                ? "bg-surface text-text-muted border border-border"
+                                : "bg-surface text-text-muted/60 border border-border/50"
+                            }`}
+                          >
+                            {inf.confidence}
+                          </span>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      {!inf.isReceived && (
-                        <button
-                          onClick={() => {
-                            setActiveInflowForReceive(inf);
-                            setReceiveAccountId(accounts[0]?.id || "");
-                            setIsReceiveInflowModalOpen(true);
-                          }}
-                          className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
-                        >
-                          Mark Received
-                        </button>
-                      )}
+                        <span className="text-[10px] font-mono text-text-muted block mt-1">
+                          Monthly around {inf.dueDay}th of month
+                          {inf.isReceived && inf.receivedDate ? ` • Received on ${inf.receivedDate}` : ""}
+                        </span>
+                      </div>
 
-                      {isEditMode && (
-                        <>
-                          {!inf.isQuickInflow && (
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                        <span className="text-sm font-mono font-bold text-text">
+                          {formatCurrency(inf.amount)}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {!inf.isReceived && (
                             <button
                               onClick={() => {
-                                setEditingInflow(inf);
-                                setIsInflowModalOpen(true);
+                                setActiveInflowForReceive(inf);
+                                setReceiveAccountId(accounts[0]?.id || "");
+                                setIsReceiveInflowModalOpen(true);
                               }}
-                              className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
-                              title="Edit Inflow"
+                              className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              Mark Received
                             </button>
                           )}
 
-                          <button
-                            onClick={() => {
-                              if (inf.isQuickInflow) {
-                                handleDeleteQuickInflow(inf.id);
-                              } else {
-                                handleDeleteInflow(inf.id);
-                              }
-                            }}
-                            className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
-                            title={inf.isQuickInflow ? "Delete quick income and deduct balance" : "Delete Inflow"}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
+                          {isEditMode && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingInflow(inf);
+                                  setIsInflowModalOpen(true);
+                                }}
+                                className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                                title="Edit Inflow"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteInflow(inf.id)}
+                                className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                                title="Delete Inflow"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
+
+            {/* 2. One-Time & Quick Incomes */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-text" />
+                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
+                    One-Time & Quick Incomes
+                  </h3>
+                  <span className="text-[10px] font-mono text-text-muted">
+                    ({oneTimeIncomes.length})
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-text">
+                  Total: {formatCurrency(oneTimeIncomes.reduce((acc, c) => acc + c.amount, 0))}
+                </span>
+              </div>
+
+              {oneTimeIncomes.length === 0 ? (
+                <div className="p-4 bg-surface border border-border rounded-md text-center">
+                  <p className="text-xs font-mono text-text">No one-time or quick incomes logged for {getMonthDisplayName(selectedMonthYear)}.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {oneTimeIncomes.map((inf) => (
+                    <div
+                      key={inf.id}
+                      className={`p-3.5 bg-surface border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        inf.isReceived ? "border-border/60 bg-surface/50 opacity-70" : "border-border"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-text">{inf.title}</span>
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                            {inf.isQuickInflow ? "Quick Income" : "One-Time"}
+                          </span>
+                          {!inf.isQuickInflow && (
+                            <span
+                              className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
+                                inf.confidence === "CERTAIN"
+                                  ? "bg-text/10 text-text font-semibold"
+                                  : inf.confidence === "PROBABLE"
+                                  ? "bg-surface text-text-muted border border-border"
+                                  : "bg-surface text-text-muted/60 border border-border/50"
+                              }`}
+                            >
+                              {inf.confidence}
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-[10px] font-mono text-text-muted block mt-1">
+                          {inf.isQuickInflow
+                            ? `Logged: ${inf.expectedDateStr || inf.receivedDate} • Deposited to: ${inf.depositToAccountName || accounts.find((a) => a.id === inf.depositToAccountId)?.name || "Account"}`
+                            : `Expected: ${inf.expectedDateStr || "Pending"}${inf.isReceived && inf.receivedDate ? ` • Received on ${inf.receivedDate}` : ""}`}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                        <span className="text-sm font-mono font-bold text-text">
+                          {formatCurrency(inf.amount)}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {!inf.isReceived && (
+                            <button
+                              onClick={() => {
+                                setActiveInflowForReceive(inf);
+                                setReceiveAccountId(accounts[0]?.id || "");
+                                setIsReceiveInflowModalOpen(true);
+                              }}
+                              className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
+                            >
+                              Mark Received
+                            </button>
+                          )}
+
+                          {isEditMode && (
+                            <>
+                              {!inf.isQuickInflow && (
+                                <button
+                                  onClick={() => {
+                                    setEditingInflow(inf);
+                                    setIsInflowModalOpen(true);
+                                  }}
+                                  className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                                  title="Edit Inflow"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  if (inf.isQuickInflow) {
+                                    handleDeleteQuickInflow(inf.id);
+                                  } else {
+                                    handleDeleteInflow(inf.id);
+                                  }
+                                }}
+                                className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                                title={inf.isQuickInflow ? "Delete quick income and deduct balance" : "Delete Inflow"}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </AnimatedSlideView>
         </div>
       )}
 
@@ -2586,9 +2820,227 @@ export const FinancePage: React.FC = () => {
         </div>
       )}
 
+      {/* 2.5. Debt Detail Review Modal */}
+      {selectedDebtForDetail &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+            onClick={() => setSelectedDebtForDetail(null)}
+          >
+            <div
+              className="bg-surface border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-md bg-bg border border-border shrink-0">
+                    {selectedDebtForDetail.type === "I_OWE" ? (
+                      <ArrowUpRight className="w-4 h-4 text-text" />
+                    ) : (
+                      <ArrowDownLeft className="w-4 h-4 text-text" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-text truncate">
+                        {selectedDebtForDetail.personName}
+                      </h3>
+                      <span
+                        className={`px-1.5 py-0.5 text-[9px] font-mono rounded-xs shrink-0 ${
+                          selectedDebtForDetail.status === "SETTLED"
+                            ? "bg-text/10 text-text"
+                            : selectedDebtForDetail.status === "PARTIAL"
+                            ? "bg-surface-hover text-text border border-border"
+                            : "bg-surface text-text-muted border border-border"
+                        }`}
+                      >
+                        {selectedDebtForDetail.status}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-text-muted block">
+                      {selectedDebtForDetail.type === "I_OWE" ? "Dena • Payable to Person" : "Paona • Receivable from Person"}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedDebtForDetail(null)}
+                  className="interactive-tap p-1 text-text-muted hover:text-text rounded-md shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Contact info if any */}
+              {selectedDebtForDetail.contactNumber && (
+                <div className="flex items-center gap-2 p-2.5 bg-bg border border-border rounded-md text-xs font-mono text-text">
+                  <Phone className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                  <span className="truncate">{selectedDebtForDetail.contactNumber}</span>
+                </div>
+              )}
+
+              {/* Amount Breakdown */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 bg-bg border border-border rounded-md">
+                  <span className="text-[9px] uppercase font-mono text-text-muted block">Total</span>
+                  <span className="text-xs font-bold font-mono text-text block truncate mt-0.5">
+                    {formatCurrency(selectedDebtForDetail.totalAmount)}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-bg border border-border rounded-md">
+                  <span className="text-[9px] uppercase font-mono text-text-muted block">
+                    {selectedDebtForDetail.type === "I_OWE" ? "Paid" : "Collected"}
+                  </span>
+                  <span className="text-xs font-bold font-mono text-text block truncate mt-0.5">
+                    {formatCurrency(selectedDebtForDetail.paidAmount)}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-bg border border-border rounded-md">
+                  <span className="text-[9px] uppercase font-mono text-text-muted block">Remaining</span>
+                  <span className="text-xs font-bold font-mono text-text block truncate mt-0.5">
+                    {formatCurrency(selectedDebtForDetail.remainingAmount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                  <span>Settlement Progress</span>
+                  <span>
+                    {Math.min(100, Math.round((selectedDebtForDetail.paidAmount / selectedDebtForDetail.totalAmount) * 100))}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-bg border border-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-text rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round((selectedDebtForDetail.paidAmount / selectedDebtForDetail.totalAmount) * 100)
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Dates & Notes */}
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex items-center justify-between py-1.5 border-b border-border/70 text-text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                    <span>{selectedDebtForDetail.type === "I_OWE" ? "Due Date" : "Expected Date"}</span>
+                  </span>
+                  <span className="text-text font-semibold">
+                    {selectedDebtForDetail.dueDate || "No specific date"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-1.5 border-b border-border/70 text-text-muted">
+                  <span>Created Date</span>
+                  <span className="text-text">{selectedDebtForDetail.createdAt}</span>
+                </div>
+
+                {selectedDebtForDetail.notes && (
+                  <div className="pt-1">
+                    <span className="text-[10px] uppercase text-text-muted block mb-1">Notes</span>
+                    <p className="p-2.5 bg-bg border border-border rounded-md text-text text-xs whitespace-pre-wrap">
+                      {selectedDebtForDetail.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment History Logs */}
+              {selectedDebtForDetail.paymentLogs && selectedDebtForDetail.paymentLogs.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Payment History</span>
+                  <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                    {selectedDebtForDetail.paymentLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-2 bg-bg border border-border/70 rounded flex items-center justify-between text-xs font-mono"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="text-text font-medium">{formatCurrency(log.amount)}</span>
+                          {log.notes && (
+                            <span className="text-[10px] text-text-muted block truncate">{log.notes}</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-text-muted shrink-0 ml-2">{log.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = selectedDebtForDetail;
+                      setSelectedDebtForDetail(null);
+                      setEditingDebt(d);
+                      setDebtModalType(d.type);
+                      setIsDebtModalOpen(true);
+                    }}
+                    className="interactive-tap px-3 py-1.5 rounded-md border border-border hover:border-text text-xs font-mono text-text transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = selectedDebtForDetail.id;
+                      setSelectedDebtForDetail(null);
+                      handleDeleteDebt(id);
+                    }}
+                    className="interactive-tap px-3 py-1.5 rounded-md border border-border hover:border-red-500 hover:text-red-400 text-xs font-mono text-text-muted transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDebtForDetail(null)}
+                    className="interactive-tap px-3 py-1.5 rounded-md bg-bg border border-border text-xs font-mono text-text-muted hover:text-text"
+                  >
+                    Close
+                  </button>
+
+                  {selectedDebtForDetail.status !== "SETTLED" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = selectedDebtForDetail;
+                        setSelectedDebtForDetail(null);
+                        setActiveDebtForPayment(d);
+                        setDebtPayAmount(String(d.remainingAmount));
+                        setIsDebtPaymentModalOpen(true);
+                      }}
+                      className="interactive-tap px-3.5 py-1.5 rounded-md bg-text text-bg text-xs font-mono font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      {selectedDebtForDetail.type === "I_OWE" ? "Record Payment" : "Record Collection"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* 3. Debt Modal (Dena / Paona) */}
-      {isDebtModalOpen && (
-        <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
+      {isDebtModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h3 className="text-sm font-semibold font-mono text-text">
@@ -2688,12 +3140,14 @@ export const FinancePage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 4. Debt Payment Modal */}
-      {isDebtPaymentModalOpen && activeDebtForPayment && (
-        <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
+      {isDebtPaymentModalOpen && activeDebtForPayment &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h3 className="text-sm font-semibold font-mono text-text">
@@ -2784,7 +3238,8 @@ export const FinancePage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 5. Monthly Cost Modal (Home Rent e.g. 1 Jan 2026 -> 31 Dec 2027, Due 3rd) */}

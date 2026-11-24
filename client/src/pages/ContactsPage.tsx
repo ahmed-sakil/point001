@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Star,
   Search,
@@ -198,6 +199,7 @@ export const ContactsPage: React.FC = () => {
 
   // Open Create Modal
   const openCreateModal = () => {
+    setSelectedContactDetail(null);
     setModalMode("create");
     setEditingId(null);
     setFormDisplayName("");
@@ -560,8 +562,9 @@ export const ContactsPage: React.FC = () => {
       {/* ======================================================== */}
       {/* CREATE / EDIT CONTACT MODAL */}
       {/* ======================================================== */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      {isModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-surface border border-border rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-sm font-bold text-text">
@@ -787,15 +790,17 @@ export const ContactsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* FLOATING CONTACT DETAILS MODAL */}
       {/* ======================================================== */}
-      {selectedContactDetail && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+      {selectedContactDetail &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
           onClick={() => setSelectedContactDetail(null)}
         >
           <div
@@ -1070,7 +1075,8 @@ export const ContactsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

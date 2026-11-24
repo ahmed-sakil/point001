@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar as CalendarIcon,
   CheckSquare,
@@ -242,6 +243,7 @@ export const TasksPage: React.FC = () => {
   // MODAL OPEN / CLOSE HANDLERS
   // ==========================================================
   const openNewTaskModal = () => {
+    setShowEventModal(false);
     setTaskModalMode("create");
     setSelectedTaskId(null);
     setTaskFormTitle("");
@@ -253,6 +255,7 @@ export const TasksPage: React.FC = () => {
   };
 
   const openNewEventModal = () => {
+    setShowTaskModal(false);
     setEventModalMode("create");
     setSelectedEventId(null);
     setEventFormTitle("");
@@ -268,6 +271,7 @@ export const TasksPage: React.FC = () => {
 
   const handleOpenEditModal = (item: TaskEventItem) => {
     if (item.type === "TASK") {
+      setShowEventModal(false);
       setTaskModalMode("edit");
       setSelectedTaskId(item.id);
       setTaskFormTitle(item.title);
@@ -277,6 +281,7 @@ export const TasksPage: React.FC = () => {
       setTaskFormPriority(item.priority || "MEDIUM");
       setShowTaskModal(true);
     } else {
+      setShowTaskModal(false);
       setEventModalMode("edit");
       setSelectedEventId(item.id);
       setEventFormTitle(item.title);
@@ -796,301 +801,305 @@ export const TasksPage: React.FC = () => {
       {/* ======================================================== */}
       {/* FLOATING WINDOW: TASK MODAL (Create / Edit) */}
       {/* ======================================================== */}
-      {showTaskModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowTaskModal(false);
-          }}
-        >
-          <div className="bg-surface border border-border rounded-md shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono font-semibold tracking-wider text-text">
-                  {taskModalMode === "edit" ? "Edit Task" : "New Task"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTaskModal(false)}
-                className="interactive-tap p-1 text-text-muted hover:text-text rounded-md"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTaskModal} className="space-y-3.5">
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={taskFormTitle}
-                  onChange={(e) => setTaskFormTitle(e.target.value)}
-                  placeholder="What needs to be done?"
-                  required
-                  autoFocus
-                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={taskFormDescription}
-                  onChange={(e) => setTaskFormDescription(e.target.value)}
-                  placeholder="Add details, notes, or sub-points..."
-                  rows={3}
-                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={taskFormDueDate}
-                    onChange={(e) => setTaskFormDueDate(e.target.value)}
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  />
+      {showTaskModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowTaskModal(false);
+            }}
+          >
+            <div className="bg-surface border border-border rounded-md shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="w-4 h-4 text-text" />
+                  <h2 className="text-xs uppercase font-mono font-semibold tracking-wider text-text">
+                    {taskModalMode === "edit" ? "Edit Task" : "New Task"}
+                  </h2>
                 </div>
-
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Time
-                  </label>
-                  <input
-                    type="time"
-                    value={taskFormDueTime}
-                    onChange={(e) => setTaskFormDueTime(e.target.value)}
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Priority
-                  </label>
-                  <select
-                    value={taskFormPriority}
-                    onChange={(e) => setTaskFormPriority(e.target.value as any)}
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  >
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                    <option value="URGENT">URGENT</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowTaskModal(false)}
-                  className="interactive-tap px-3 py-1.5 text-xs font-mono text-text-muted hover:text-text"
+                  className="interactive-tap p-1 text-text-muted hover:text-text rounded-md"
+                  aria-label="Close modal"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="interactive-tap px-4 py-1.5 bg-text text-bg rounded-md text-xs font-semibold"
-                >
-                  {taskModalMode === "edit" ? "Update Task" : "Save Task"}
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form onSubmit={handleSaveTaskModal} className="space-y-3.5">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={taskFormTitle}
+                    onChange={(e) => setTaskFormTitle(e.target.value)}
+                    placeholder="What needs to be done?"
+                    required
+                    autoFocus
+                    className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={taskFormDescription}
+                    onChange={(e) => setTaskFormDescription(e.target.value)}
+                    placeholder="Add details, notes, or sub-points..."
+                    rows={3}
+                    className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={taskFormDueDate}
+                      onChange={(e) => setTaskFormDueDate(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Time
+                    </label>
+                    <input
+                      type="time"
+                      value={taskFormDueTime}
+                      onChange={(e) => setTaskFormDueTime(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Priority
+                    </label>
+                    <select
+                      value={taskFormPriority}
+                      onChange={(e) => setTaskFormPriority(e.target.value as any)}
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    >
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
+                      <option value="URGENT">URGENT</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowTaskModal(false)}
+                    className="interactive-tap px-3 py-1.5 text-xs font-mono text-text-muted hover:text-text"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="interactive-tap px-4 py-1.5 bg-text text-bg rounded-md text-xs font-semibold"
+                  >
+                    {taskModalMode === "edit" ? "Update Task" : "Save Task"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* ======================================================== */}
       {/* FLOATING WINDOW: EVENT MODAL (Create / Edit) */}
       {/* ======================================================== */}
-      {showEventModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowEventModal(false);
-          }}
-        >
-          <div className="bg-surface border border-border rounded-md shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono font-semibold tracking-wider text-text">
-                  {eventModalMode === "edit" ? "Edit Event" : "New Event"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEventModal(false)}
-                className="interactive-tap p-1 text-text-muted hover:text-text rounded-md"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEventModal} className="space-y-3.5">
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                  Event Title
-                </label>
-                <input
-                  type="text"
-                  value={eventFormTitle}
-                  onChange={(e) => setEventFormTitle(e.target.value)}
-                  placeholder="e.g. Birthday, Anniversary, Weekly Review..."
-                  required
-                  autoFocus
-                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={eventFormDescription}
-                  onChange={(e) => setEventFormDescription(e.target.value)}
-                  placeholder="Add details, notes, or celebration agenda..."
-                  rows={2}
-                  className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Event Type
-                  </label>
-                  <select
-                    value={eventFormType}
-                    onChange={(e) => setEventFormType(e.target.value as any)}
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  >
-                    <option value="STANDARD">Standard Event</option>
-                    <option value="BIRTHDAY">Birthday</option>
-                    <option value="ANNIVERSARY">Anniversary</option>
-                    <option value="WEEKLY">Weekly Recurring</option>
-                    <option value="MONTHLY">Monthly Recurring</option>
-                    <option value="YEARLY">Yearly Recurring</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={eventFormLocation}
-                    onChange={(e) => setEventFormLocation(e.target.value)}
-                    placeholder="Room, Link, Place..."
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={eventFormStartDate}
-                    onChange={(e) => setEventFormStartDate(e.target.value)}
-                    required
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={eventFormStartTime}
-                    onChange={(e) => setEventFormStartTime(e.target.value)}
-                    placeholder="All day if empty"
-                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={eventFormRecurrenceEndDate}
-                  onChange={(e) => setEventFormRecurrenceEndDate(e.target.value)}
-                  placeholder="e.g. 2030-12-12"
-                  className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase text-text-muted block mb-1.5">
-                  Color (for Calendar)
-                </label>
+      {showEventModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowEventModal(false);
+            }}
+          >
+            <div className="bg-surface border border-border rounded-md shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  {COLOR_PRESETS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setEventFormColor(c.value)}
-                      title={c.label}
-                      className={`w-6 h-6 rounded-xs transition-transform ${
-                        eventFormColor.toLowerCase() === c.value.toLowerCase()
-                          ? "ring-2 ring-text scale-110"
-                          : "opacity-80 hover:opacity-100"
-                      }`}
-                      style={{ backgroundColor: c.value }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={eventFormColor}
-                    onChange={(e) => setEventFormColor(e.target.value)}
-                    className="w-6 h-6 rounded-xs border-0 bg-transparent cursor-pointer"
-                    title="Custom Color"
-                  />
+                  <CalendarIcon className="w-4 h-4 text-text" />
+                  <h2 className="text-xs uppercase font-mono font-semibold tracking-wider text-text">
+                    {eventModalMode === "edit" ? "Edit Event" : "New Event"}
+                  </h2>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowEventModal(false)}
-                  className="interactive-tap px-3 py-1.5 text-xs font-mono text-text-muted hover:text-text"
+                  className="interactive-tap p-1 text-text-muted hover:text-text rounded-md"
+                  aria-label="Close modal"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="interactive-tap px-4 py-1.5 bg-text text-bg rounded-md text-xs font-semibold"
-                >
-                  {eventModalMode === "edit" ? "Update Event" : "Schedule Event"}
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form onSubmit={handleSaveEventModal} className="space-y-3.5">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Event Title
+                  </label>
+                  <input
+                    type="text"
+                    value={eventFormTitle}
+                    onChange={(e) => setEventFormTitle(e.target.value)}
+                    placeholder="e.g. Birthday, Anniversary, Weekly Review..."
+                    required
+                    autoFocus
+                    className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={eventFormDescription}
+                    onChange={(e) => setEventFormDescription(e.target.value)}
+                    placeholder="Add details, notes, or celebration agenda..."
+                    rows={2}
+                    className="w-full bg-bg border border-border rounded-md px-3 py-2 text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text font-mono resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Event Type
+                    </label>
+                    <select
+                      value={eventFormType}
+                      onChange={(e) => setEventFormType(e.target.value as any)}
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    >
+                      <option value="STANDARD">Standard Event</option>
+                      <option value="BIRTHDAY">Birthday</option>
+                      <option value="ANNIVERSARY">Anniversary</option>
+                      <option value="WEEKLY">Weekly Recurring</option>
+                      <option value="MONTHLY">Monthly Recurring</option>
+                      <option value="YEARLY">Yearly Recurring</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={eventFormLocation}
+                      onChange={(e) => setEventFormLocation(e.target.value)}
+                      placeholder="Room, Link, Place..."
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={eventFormStartDate}
+                      onChange={(e) => setEventFormStartDate(e.target.value)}
+                      required
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={eventFormStartTime}
+                      onChange={(e) => setEventFormStartTime(e.target.value)}
+                      placeholder="All day if empty"
+                      className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={eventFormRecurrenceEndDate}
+                    onChange={(e) => setEventFormRecurrenceEndDate(e.target.value)}
+                    placeholder="e.g. 2030-12-12"
+                    className="w-full bg-bg border border-border rounded-md px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-text font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-text-muted block mb-1.5">
+                    Color (for Calendar)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {COLOR_PRESETS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setEventFormColor(c.value)}
+                        title={c.label}
+                        className={`w-6 h-6 rounded-xs transition-transform ${
+                          eventFormColor.toLowerCase() === c.value.toLowerCase()
+                            ? "ring-2 ring-text scale-110"
+                            : "opacity-80 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={eventFormColor}
+                      onChange={(e) => setEventFormColor(e.target.value)}
+                      className="w-6 h-6 rounded-xs border-0 bg-transparent cursor-pointer"
+                      title="Custom Color"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowEventModal(false)}
+                    className="interactive-tap px-3 py-1.5 text-xs font-mono text-text-muted hover:text-text"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="interactive-tap px-4 py-1.5 bg-text text-bg rounded-md text-xs font-semibold"
+                  >
+                    {eventModalMode === "edit" ? "Update Event" : "Schedule Event"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
