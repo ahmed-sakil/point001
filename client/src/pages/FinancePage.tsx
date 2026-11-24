@@ -949,9 +949,6 @@ export const FinancePage: React.FC = () => {
   const oneTimeIncomes = expectedInflows.filter(
     (inf) => inf.inflowType === "ONE_TIME" || inf.isQuickInflow
   );
-  const totalReceivedInflows = expectedInflows
-    .filter((inf) => inf.isReceived)
-    .reduce((sum, inf) => sum + inf.amount, 0);
   const totalPendingInflows = expectedInflows
     .filter((inf) => !inf.isReceived)
     .reduce((sum, inf) => sum + inf.amount, 0);
@@ -1858,13 +1855,10 @@ export const FinancePage: React.FC = () => {
               <h2 className="text-xs font-mono uppercase tracking-wider text-text font-semibold">
                 Monthly Costs Overview
               </h2>
-              <p className="text-[11px] font-mono text-text-muted mt-0.5">
-                Active for {getMonthDisplayName(selectedMonthYear)} • 2 Cost Types: Monthly Repeating & Daily Costs
-              </p>
             </div>
 
             {/* Month Selector Pill */}
-            <div className="flex items-center bg-surface border border-border rounded-md px-1 py-0.5 self-start sm:self-auto">
+            <div className="flex items-center bg-surface border border-border rounded-md px-1 py-0.5 shrink-0 whitespace-nowrap self-start sm:self-auto">
               <button
                 onClick={handlePrevMonth}
                 className="interactive-tap p-1.5 text-text-muted hover:text-text hover:bg-bg rounded-xs transition-colors"
@@ -1875,7 +1869,7 @@ export const FinancePage: React.FC = () => {
               </button>
               <button
                 onClick={handleCurrentMonth}
-                className="px-2 py-1 text-xs font-mono text-text hover:bg-bg rounded-xs transition-colors"
+                className="px-2 py-1 text-xs font-mono text-text hover:bg-bg rounded-xs transition-colors whitespace-nowrap"
                 title="Jump to Current Month"
               >
                 {getMonthDisplayName(selectedMonthYear)}
@@ -1894,39 +1888,21 @@ export const FinancePage: React.FC = () => {
           <AnimatedSlideView slideKey={animKey} direction={slideDirection} className="space-y-6">
             {/* Month Summary Bar */}
             <div className="p-3.5 bg-surface border border-border rounded-md flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-6">
-              <div>
-                <span className="text-[10px] uppercase font-mono text-text-muted block">This Month's Total</span>
-                <span className="text-sm font-bold font-mono text-text">
-                  {formatCurrency(summary.totalMonthCosts ?? (summary.totalMonthlyCostDue + summary.totalMonthlyCostPaid))}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-mono text-text-muted block">Monthly Repeating</span>
-                <span className="text-sm font-bold font-mono text-text">
-                  {formatCurrency(summary.totalMonthlyRepeatingCosts ?? 0)}
-                </span>
-                <span className="text-[9px] font-mono text-text-muted block">
-                  {repeatingCosts.filter((c) => c.isPaid).length} of {repeatingCosts.length} paid
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-mono text-text-muted block">Daily Costs Total</span>
-                <span className="text-sm font-bold font-mono text-text">
-                  {formatCurrency(summary.totalDailyCosts ?? 0)}
-                </span>
-                <span className="text-[9px] font-mono text-text-muted block">
-                  {dailyCosts.length} logged entries
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-mono text-text-muted block">Remaining Due</span>
-                <span className="text-sm font-bold font-mono text-text">
-                  {formatCurrency(summary.totalMonthlyCostDue)}
-                </span>
+              <div className="flex flex-wrap items-center gap-6">
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Total</span>
+                  <span className="text-sm font-bold font-mono text-text">
+                    {formatCurrency(summary.totalMonthCosts ?? (summary.totalMonthlyCostDue + summary.totalMonthlyCostPaid))}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Expected Due</span>
+                  <span className="text-sm font-bold font-mono text-text">
+                    {formatCurrency(summary.totalMonthlyCostDue)}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
           {/* ----------------------------------------------------------- */}
           {/* TYPE 1: MONTHLY REPEATING COSTS                             */}
@@ -1935,14 +1911,9 @@ export const FinancePage: React.FC = () => {
             <div className="flex items-center justify-between pb-1 border-b border-border">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-text" />
-                <div>
-                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                    1. Monthly Repeating Costs
-                  </h3>
-                  <span className="text-[10px] font-mono text-text-muted">
-                    Fixed contracts & recurring commitments (Home rent, bills, internet)
-                  </span>
-                </div>
+                <h3 className="text-xs font-mono uppercase font-semibold text-text">
+                  1. Monthly Repeating Costs
+                </h3>
               </div>
 
               {isEditMode && (
@@ -2058,19 +2029,10 @@ export const FinancePage: React.FC = () => {
             <div className="flex items-center justify-between pb-1 border-b border-border">
               <div className="flex items-center gap-2">
                 <ArrowUpRight className="w-4 h-4 text-text" />
-                <div>
-                  <h3 className="text-xs font-mono uppercase font-semibold text-text">
-                    2. Daily Costs
-                  </h3>
-                  <span className="text-[10px] font-mono text-text-muted">
-                    Everyday expenses logged for {getMonthDisplayName(selectedMonthYear)} • Added to this month's cost
-                  </span>
-                </div>
+                <h3 className="text-xs font-mono uppercase font-semibold text-text">
+                  2. Daily Costs
+                </h3>
               </div>
-
-              <span className="text-[10px] font-mono text-text font-semibold">
-                {dailyCosts.length} entries • Total: {formatCurrency(summary.totalDailyCosts ?? 0)}
-              </span>
             </div>
 
             {dailyCosts.length === 0 ? (
@@ -2156,13 +2118,10 @@ export const FinancePage: React.FC = () => {
               <h2 className="text-xs font-mono uppercase tracking-wider text-text font-semibold">
                 Monthly Income Overview
               </h2>
-              <p className="text-[11px] font-mono text-text-muted mt-0.5">
-                Active for {getMonthDisplayName(selectedMonthYear)} • Recurring Incomes & One-Time Collections
-              </p>
             </div>
 
             {/* Month Selector Pill */}
-            <div className="flex items-center bg-surface border border-border rounded-md px-1 py-0.5 self-start sm:self-auto">
+            <div className="flex items-center bg-surface border border-border rounded-md px-1 py-0.5 shrink-0 whitespace-nowrap self-start sm:self-auto">
               <button
                 onClick={handlePrevMonth}
                 className="interactive-tap p-1.5 text-text-muted hover:text-text hover:bg-bg rounded-xs transition-colors"
@@ -2173,7 +2132,7 @@ export const FinancePage: React.FC = () => {
               </button>
               <button
                 onClick={handleCurrentMonth}
-                className="px-2 py-1 text-xs font-mono text-text hover:bg-bg rounded-xs transition-colors"
+                className="px-2 py-1 text-xs font-mono text-text hover:bg-bg rounded-xs transition-colors whitespace-nowrap"
                 title="Jump to Current Month"
               >
                 {getMonthDisplayName(selectedMonthYear)}
@@ -2194,22 +2153,13 @@ export const FinancePage: React.FC = () => {
             <div className="p-3.5 bg-surface border border-border rounded-md flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-6">
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-text-muted block">This Month's Expected</span>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">Total</span>
                   <span className="text-sm font-bold font-mono text-text">
                     {formatCurrency(totalThisMonthExpectedIncome)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-text-muted block">Received / Deposited</span>
-                  <span className="text-sm font-bold font-mono text-text">
-                    {formatCurrency(totalReceivedInflows)}
-                  </span>
-                  <span className="text-[9px] font-mono text-text-muted block">
-                    {expectedInflows.filter((i) => i.isReceived).length} of {expectedInflows.length} received
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-mono text-text-muted block">Pending / Due</span>
+                  <span className="text-[10px] uppercase font-mono text-text-muted block">On Pending</span>
                   <span className="text-sm font-bold font-mono text-text">
                     {formatCurrency(totalPendingInflows)}
                   </span>
@@ -2238,13 +2188,7 @@ export const FinancePage: React.FC = () => {
                   <h3 className="text-xs font-mono uppercase font-semibold text-text">
                     Monthly Recurring Incomes
                   </h3>
-                  <span className="text-[10px] font-mono text-text-muted">
-                    ({repeatingIncomes.length})
-                  </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-text">
-                  Total: {formatCurrency(repeatingIncomes.reduce((acc, c) => acc + c.amount, 0))}
-                </span>
               </div>
 
               {repeatingIncomes.length === 0 ? (
@@ -2345,13 +2289,7 @@ export const FinancePage: React.FC = () => {
                   <h3 className="text-xs font-mono uppercase font-semibold text-text">
                     One-Time & Quick Incomes
                   </h3>
-                  <span className="text-[10px] font-mono text-text-muted">
-                    ({oneTimeIncomes.length})
-                  </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-text">
-                  Total: {formatCurrency(oneTimeIncomes.reduce((acc, c) => acc + c.amount, 0))}
-                </span>
               </div>
 
               {oneTimeIncomes.length === 0 ? (
