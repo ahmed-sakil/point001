@@ -168,6 +168,14 @@ export const getFinanceOverview = async (req: AuthenticatedRequest, res: Respons
           gte: monthStart,
           lte: monthEnd,
         },
+        linkedMonthlyId: null,
+        linkedDebtId: null,
+        linkedGoalId: null,
+        category: { notIn: ["Debt Payment", "Monthly Cost"] },
+        NOT: [
+          { notes: { startsWith: "Paid " } },
+          { notes: { startsWith: "Repaid debt to " } },
+        ],
       },
       include: {
         fromAccount: { select: { id: true, name: true } },
@@ -290,6 +298,13 @@ export const getFinanceOverview = async (req: AuthenticatedRequest, res: Respons
           gte: monthStart,
           lte: monthEnd,
         },
+        linkedDebtId: null,
+        linkedGoalId: null,
+        category: { notIn: ["Debt Collection", "Expected Inflow"] },
+        NOT: [
+          { notes: { startsWith: "Received: " } },
+          { notes: { startsWith: "Collected receivable from " } },
+        ],
       },
       include: {
         toAccount: { select: { id: true, name: true } },
@@ -587,7 +602,7 @@ export const transferFunds = async (req: AuthenticatedRequest, res: Response): P
 export const createQuickTransaction = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
-    const { type, amount, title, accountId } = req.body;
+    const { type, amount, title, accountId, category, notes, date } = req.body;
 
     const numAmount = Number(amount);
     if (!userId || !type || isNaN(numAmount) || numAmount <= 0 || !title || !accountId) {
@@ -603,7 +618,7 @@ export const createQuickTransaction = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
-    const now = new Date();
+    const txDate = date ? new Date(date) : new Date();
 
     if (type === "EXPENSE") {
       const currentBalance = Number(account.balance);
@@ -625,9 +640,9 @@ export const createQuickTransaction = async (req: AuthenticatedRequest, res: Res
             type: "EXPENSE",
             amount: new Prisma.Decimal(numAmount),
             fromAccountId: accountId,
-            category: title.trim(),
-            date: now,
-            notes: title.trim(),
+            category: (category && category.trim()) || title.trim(),
+            date: txDate,
+            notes: (notes && notes.trim()) || title.trim(),
           },
         }),
       ]);
@@ -644,9 +659,9 @@ export const createQuickTransaction = async (req: AuthenticatedRequest, res: Res
             type: "INCOME",
             amount: new Prisma.Decimal(numAmount),
             toAccountId: accountId,
-            category: title.trim(),
-            date: now,
-            notes: title.trim(),
+            category: (category && category.trim()) || title.trim(),
+            date: txDate,
+            notes: (notes && notes.trim()) || title.trim(),
           },
         }),
       ]);
@@ -1089,15 +1104,84 @@ export const deleteMonthlyCommitment = async (req: AuthenticatedRequest, res: Re
   try {
     const userId = req.userId;
     const { id } = req.params;
+    const currentMonth = (req.query.currentMonth as string) || (req.body?.currentMonth as string) || null;
 
     const existing = await prisma.monthlyCommitment.findFirst({
       where: { id, userId },
+      include: { payments: true },
     });
     if (!existing) {
       res.status(404).json({ error: "Commitment not found" });
       return;
     }
 
+    if (currentMonth) {
+      // Find payments made prior to currentMonth
+      const priorPayments = existing.payments.filter(
+        (p) => p.isPaid && p.monthYear < currentMonth
+      );
+
+      // Refund & cleanup payments in currentMonth or future
+      const currentAndFuturePayments = existing.payments.filter(
+        (p) => p.monthYear >= currentMonth
+      );
+      for (const p of currentAndFuturePayments) {
+        if (p.isPaid && p.paidFromAccountId) {
+          await prisma.financialAccount.update({
+            where: { id: p.paidFromAccountId },
+            data: { balance: { increment: Number(p.amountPaid) } },
+          });
+        }
+      }
+      if (currentAndFuturePayments.length > 0) {
+        await prisma.monthlyCostPayment.deleteMany({
+          where: { commitmentId: id, monthYear: { gte: currentMonth } },
+        });
+        await prisma.financialTransaction.deleteMany({
+          where: {
+            userId,
+            linkedMonthlyId: id,
+            notes: { contains: currentMonth },
+          },
+        });
+      }
+
+      if (priorPayments.length > 0) {
+        // End the commitment as of the end of the previous month
+        const [yearStr, monthStr] = currentMonth.split("-");
+        const y = parseInt(yearStr, 10);
+        const m = parseInt(monthStr, 10);
+        const lastDayOfPrevMonth = new Date(Date.UTC(y, m - 1, 0));
+
+        await prisma.monthlyCommitment.update({
+          where: { id },
+          data: { endDate: lastDayOfPrevMonth },
+        });
+
+        res.json({ success: true, endedAt: lastDayOfPrevMonth });
+        return;
+      }
+    }
+
+    // If no currentMonth or no prior payments, check if ANY payments exist across history
+    const anyPaid = existing.payments.filter((p) => p.isPaid);
+    if (anyPaid.length > 0) {
+      anyPaid.sort((a, b) => a.monthYear.localeCompare(b.monthYear));
+      const latestMonth = anyPaid[anyPaid.length - 1].monthYear;
+      const [yearStr, monthStr] = latestMonth.split("-");
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(monthStr, 10);
+      const lastDayOfLatestMonth = new Date(Date.UTC(y, m, 0));
+
+      await prisma.monthlyCommitment.update({
+        where: { id },
+        data: { endDate: lastDayOfLatestMonth },
+      });
+      res.json({ success: true, endedAt: lastDayOfLatestMonth });
+      return;
+    }
+
+    // No payment history exists at all: safe to completely delete
     await prisma.monthlyCommitment.delete({
       where: { id },
     });
@@ -1155,6 +1239,16 @@ export const toggleMonthlyCostPayment = async (req: AuthenticatedRequest, res: R
       ops.push(
         prisma.monthlyCostPayment.deleteMany({
           where: { commitmentId: id, monthYear },
+        }),
+        prisma.financialTransaction.deleteMany({
+          where: {
+            userId,
+            OR: [
+              { linkedMonthlyId: id, notes: { contains: monthYear } },
+              { category: "Monthly Cost", notes: `Paid ${commitment.title} for ${monthYear}` },
+              { notes: `Paid ${commitment.title} for ${monthYear}` },
+            ],
+          },
         })
       );
       await prisma.$transaction(ops);
@@ -1217,9 +1311,10 @@ export const toggleMonthlyCostPayment = async (req: AuthenticatedRequest, res: R
             type: "EXPENSE",
             amount: new Prisma.Decimal(payAmount),
             fromAccountId: chosenAccountId,
-            category: commitment.category || "Monthly Cost",
+            category: "Monthly Cost",
             date: new Date(),
             notes: `Paid ${commitment.title} for ${monthYear}`,
+            linkedMonthlyId: id,
           },
         })
       );
@@ -1310,6 +1405,7 @@ export const deleteExpectedInflow = async (req: AuthenticatedRequest, res: Respo
   try {
     const userId = req.userId;
     const { id } = req.params;
+    const currentMonth = (req.query.currentMonth as string) || (req.body?.currentMonth as string) || null;
 
     const existing = await prisma.expectedInflow.findFirst({
       where: { id, userId },
@@ -1317,6 +1413,39 @@ export const deleteExpectedInflow = async (req: AuthenticatedRequest, res: Respo
     if (!existing) {
       res.status(404).json({ error: "Inflow not found" });
       return;
+    }
+
+    if (existing.inflowType === "MONTHLY" && currentMonth) {
+      const [yearStr, monthStr] = currentMonth.split("-");
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(monthStr, 10);
+      const lastDayOfPrevMonth = new Date(Date.UTC(y, m - 1, 0));
+
+      const isPastReceived = existing.isReceived && existing.receivedDate && existing.receivedDate.toISOString().slice(0, 7) < currentMonth;
+
+      if (isPastReceived) {
+        await prisma.expectedInflow.update({
+          where: { id },
+          data: { endDate: lastDayOfPrevMonth },
+        });
+        res.json({ success: true, endedAt: lastDayOfPrevMonth });
+        return;
+      }
+    }
+
+    if (existing.isReceived && existing.depositToAccountId) {
+      await prisma.financialAccount.update({
+        where: { id: existing.depositToAccountId },
+        data: { balance: { decrement: Number(existing.amount) } },
+      });
+      await prisma.financialTransaction.deleteMany({
+        where: {
+          userId,
+          toAccountId: existing.depositToAccountId,
+          category: "Expected Inflow",
+          notes: `Received: ${existing.title}`,
+        },
+      });
     }
 
     await prisma.expectedInflow.delete({

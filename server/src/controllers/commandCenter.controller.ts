@@ -96,7 +96,12 @@ export const getCommandCenterData = async (req: AuthenticatedRequest, res: Respo
     const accounts = await prisma.financialAccount.findMany({
       where: { userId },
     });
-    const netAmount = accounts.reduce((acc, curr) => acc + Number(curr.balance), 0);
+    const liquidBalance = accounts.reduce((acc, curr) => acc + Number(curr.balance), 0);
+
+    const vaults = await prisma.savingsGoal.findMany({
+      where: { userId },
+    });
+    const totalVaultSavings = vaults.reduce((acc, curr) => acc + Number(curr.currentAmount), 0);
 
     const debts = await prisma.debtRecord.findMany({
       where: {
@@ -107,32 +112,191 @@ export const getCommandCenterData = async (req: AuthenticatedRequest, res: Respo
 
     let totalDena = 0;
     let totalPaona = 0;
-    const upcomingSevenDaysDena: Array<{
+
+    const toPayList: Array<{
       id: string;
-      personName: string;
-      type: "DENA" | "PAONA";
+      title: string;
+      source: "DENA" | "MONTHLY_COST";
       amount: number;
       dueDate: string;
+      isOverdue: boolean;
+    }> = [];
+
+    const toReceiveList: Array<{
+      id: string;
+      title: string;
+      source: "PAONA" | "INFLOW";
+      amount: number;
+      dueDate: string;
+      isOverdue: boolean;
     }> = [];
 
     for (const debt of debts) {
       const remaining = Number(debt.totalAmount) - Number(debt.paidAmount);
       if (debt.type === "I_OWE") {
         totalDena += remaining;
+        if (debt.dueDate && debt.dueDate <= nextSevenDaysEnd) {
+          const isOverdue = debt.dueDate < todayStart;
+          toPayList.push({
+            id: debt.id,
+            title: debt.personName,
+            source: "DENA",
+            amount: remaining,
+            dueDate: debt.dueDate.toISOString().split("T")[0],
+            isOverdue,
+          });
+        }
       } else {
         totalPaona += remaining;
-      }
-
-      if (debt.dueDate && debt.dueDate >= todayStart && debt.dueDate <= nextSevenDaysEnd) {
-        upcomingSevenDaysDena.push({
-          id: debt.id,
-          personName: debt.personName,
-          type: debt.type === "I_OWE" ? "DENA" : "PAONA",
-          amount: remaining,
-          dueDate: debt.dueDate.toISOString().split("T")[0],
-        });
+        if (debt.dueDate && debt.dueDate <= nextSevenDaysEnd) {
+          const isOverdue = debt.dueDate < todayStart;
+          toReceiveList.push({
+            id: debt.id,
+            title: debt.personName,
+            source: "PAONA",
+            amount: remaining,
+            dueDate: debt.dueDate.toISOString().split("T")[0],
+            isOverdue,
+          });
+        }
       }
     }
+
+    // Monthly commitments (Recurring costs) to pay in next 7 days
+    const monthlyCommitments = await prisma.monthlyCommitment.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      include: {
+        payments: true,
+      },
+    });
+
+    const currentMonthYear = `${y}-${m}`;
+    const todayDateNum = now.getDate();
+
+    for (const c of monthlyCommitments) {
+      const start = new Date(c.startDate);
+      const end = c.endDate ? new Date(c.endDate) : null;
+
+      // Overdue from earlier this month
+      const maxDaysInCurMonth = new Date(Date.UTC(y, now.getMonth() + 1, 0)).getUTCDate();
+      const actualDueDayCurMonth = Math.min(c.dueDayOfMonth, maxDaysInCurMonth);
+      if (actualDueDayCurMonth < todayDateNum && now >= start && (!end || now <= end)) {
+        const payment = c.payments.find((p) => p.monthYear === currentMonthYear && p.isPaid);
+        if (!payment) {
+          toPayList.push({
+            id: `${c.id}-${currentMonthYear}`,
+            title: c.title,
+            source: "MONTHLY_COST",
+            amount: Number(c.amount),
+            dueDate: `${currentMonthYear}-${String(actualDueDayCurMonth).padStart(2, "0")}`,
+            isOverdue: true,
+          });
+        }
+      }
+
+      // Next 7 days
+      for (let offset = 0; offset <= 7; offset++) {
+        const checkDate = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+        if (checkDate < start || (end && checkDate > end)) continue;
+
+        const cy = checkDate.getFullYear();
+        const cm = checkDate.getMonth() + 1;
+        const cd = checkDate.getDate();
+        const monthYearStr = `${cy}-${String(cm).padStart(2, "0")}`;
+
+        const maxDays = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
+        const actualDueDay = Math.min(c.dueDayOfMonth, maxDays);
+        if (actualDueDay === cd) {
+          const payment = c.payments.find((p) => p.monthYear === monthYearStr && p.isPaid);
+          if (!payment) {
+            toPayList.push({
+              id: `${c.id}-${monthYearStr}`,
+              title: c.title,
+              source: "MONTHLY_COST",
+              amount: Number(c.amount),
+              dueDate: `${monthYearStr}-${String(cd).padStart(2, "0")}`,
+              isOverdue: false,
+            });
+          }
+        }
+      }
+    }
+
+    // Expected inflows (to receive in next 7 days)
+    const expectedInflows = await prisma.expectedInflow.findMany({
+      where: {
+        userId,
+        isReceived: false,
+      },
+    });
+
+    for (const inf of expectedInflows) {
+      if (inf.inflowType === "ONE_TIME") {
+        if (inf.expectedDate && inf.expectedDate <= nextSevenDaysEnd) {
+          toReceiveList.push({
+            id: inf.id,
+            title: inf.title,
+            source: "INFLOW",
+            amount: Number(inf.amount),
+            dueDate: inf.expectedDate.toISOString().split("T")[0],
+            isOverdue: inf.expectedDate < todayStart,
+          });
+        }
+      } else {
+        // Monthly inflow
+        const start = inf.startDate ? new Date(inf.startDate) : new Date(inf.createdAt);
+        const end = inf.endDate ? new Date(inf.endDate) : null;
+        const infDueDay = inf.dueDay || 1;
+
+        // Overdue earlier this month
+        const maxDaysCur = new Date(Date.UTC(y, now.getMonth() + 1, 0)).getUTCDate();
+        const actualDueDayCur = Math.min(infDueDay, maxDaysCur);
+        if (actualDueDayCur < todayDateNum && now >= start && (!end || now <= end)) {
+          toReceiveList.push({
+            id: `${inf.id}-${currentMonthYear}`,
+            title: inf.title,
+            source: "INFLOW",
+            amount: Number(inf.amount),
+            dueDate: `${currentMonthYear}-${String(actualDueDayCur).padStart(2, "0")}`,
+            isOverdue: true,
+          });
+        }
+
+        // Next 7 days
+        for (let offset = 0; offset <= 7; offset++) {
+          const checkDate = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+          if (checkDate < start || (end && checkDate > end)) continue;
+
+          const cy = checkDate.getFullYear();
+          const cm = checkDate.getMonth() + 1;
+          const cd = checkDate.getDate();
+          const monthYearStr = `${cy}-${String(cm).padStart(2, "0")}`;
+
+          const maxDays = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
+          const actualDueDay = Math.min(infDueDay, maxDays);
+          if (actualDueDay === cd) {
+            toReceiveList.push({
+              id: `${inf.id}-${monthYearStr}`,
+              title: inf.title,
+              source: "INFLOW",
+              amount: Number(inf.amount),
+              dueDate: `${monthYearStr}-${String(cd).padStart(2, "0")}`,
+              isOverdue: false,
+            });
+          }
+        }
+      }
+    }
+
+    toPayList.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    toReceiveList.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+    const nextSevenDaysToPayTotal = toPayList.reduce((sum, item) => sum + item.amount, 0);
+    const nextSevenDaysToReceiveTotal = toReceiveList.reduce((sum, item) => sum + item.amount, 0);
+    const netAmount = liquidBalance + totalVaultSavings + totalPaona - totalDena;
 
     // Check if today is locked
     const todayLock = await prisma.calendarDayLock.findFirst({
@@ -212,11 +376,21 @@ export const getCommandCenterData = async (req: AuthenticatedRequest, res: Respo
         elements: (Array.isArray(n.elements) ? n.elements : []) as Array<{ id: string; text: string }>,
       })),
       finance: {
-        hasData: accounts.length > 0 || debts.length > 0,
+        hasData: accounts.length > 0 || debts.length > 0 || monthlyCommitments.length > 0 || expectedInflows.length > 0 || vaults.length > 0,
         netAmount,
         totalDena,
         totalPaona,
-        upcomingDenaList: upcomingSevenDaysDena,
+        nextSevenDaysToPayTotal,
+        nextSevenDaysToReceiveTotal,
+        toPayList,
+        toReceiveList,
+        upcomingDenaList: toPayList.map((item) => ({
+          id: item.id,
+          personName: item.title,
+          type: item.source === "DENA" ? "DENA" : "MONTHLY_COST",
+          amount: item.amount,
+          dueDate: item.dueDate,
+        })),
       },
     });
   } catch (error) {

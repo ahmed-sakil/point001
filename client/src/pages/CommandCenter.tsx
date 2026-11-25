@@ -14,6 +14,8 @@ import {
   Loader2,
   Lock,
   Clock,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -61,6 +63,15 @@ interface DuePayment {
   dueDate: string;
 }
 
+interface UpcomingFinancialItem {
+  id: string;
+  title: string;
+  source: "DENA" | "MONTHLY_COST" | "PAONA" | "INFLOW";
+  amount: number;
+  dueDate: string;
+  isOverdue?: boolean;
+}
+
 interface CommandCenterResponse {
   summary: {
     nextSevenDaysTasks: number;
@@ -77,7 +88,11 @@ interface CommandCenterResponse {
     netAmount: number;
     totalDena: number;
     totalPaona: number;
-    upcomingDenaList: DuePayment[];
+    nextSevenDaysToPayTotal?: number;
+    nextSevenDaysToReceiveTotal?: number;
+    toPayList?: UpcomingFinancialItem[];
+    toReceiveList?: UpcomingFinancialItem[];
+    upcomingDenaList?: DuePayment[];
   };
 }
 
@@ -96,6 +111,10 @@ export const CommandCenter: React.FC = () => {
     netAmount: 0,
     totalDena: 0,
     totalPaona: 0,
+    nextSevenDaysToPayTotal: 0,
+    nextSevenDaysToReceiveTotal: 0,
+    toPayList: [] as UpcomingFinancialItem[],
+    toReceiveList: [] as UpcomingFinancialItem[],
     upcomingDenaList: [] as DuePayment[],
   });
 
@@ -114,6 +133,10 @@ export const CommandCenter: React.FC = () => {
         netAmount: data.finance?.netAmount || 0,
         totalDena: data.finance?.totalDena || 0,
         totalPaona: data.finance?.totalPaona || 0,
+        nextSevenDaysToPayTotal: data.finance?.nextSevenDaysToPayTotal || 0,
+        nextSevenDaysToReceiveTotal: data.finance?.nextSevenDaysToReceiveTotal || 0,
+        toPayList: data.finance?.toPayList || [],
+        toReceiveList: data.finance?.toReceiveList || [],
         upcomingDenaList: data.finance?.upcomingDenaList || [],
       });
     } catch (error) {
@@ -744,45 +767,88 @@ export const CommandCenter: React.FC = () => {
               <>
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="p-2.5 bg-bg border border-border rounded-md">
-                    <span className="text-[9px] uppercase font-mono text-text-muted block">Net Amount</span>
-                    <p className="text-sm sm:text-base font-bold font-mono text-text mt-0.5 truncate">
+                    <span className="text-[9px] uppercase font-mono text-text-muted block">Net Balance</span>
+                    <p className="text-xs sm:text-sm font-bold font-mono text-text mt-0.5 truncate">
                       ৳ {finance.netAmount.toLocaleString()}
                     </p>
                   </div>
 
                   <div className="p-2.5 bg-bg border border-border rounded-md">
-                    <span className="text-[9px] uppercase font-mono text-text-muted block">Total Dena</span>
-                    <p className="text-sm sm:text-base font-bold font-mono text-text mt-0.5 truncate">
-                      ৳ {finance.totalDena.toLocaleString()}
+                    <span className="text-[9px] uppercase font-mono text-text-muted block">7D To Pay</span>
+                    <p className="text-xs sm:text-sm font-bold font-mono text-text mt-0.5 truncate">
+                      ৳ {finance.nextSevenDaysToPayTotal.toLocaleString()}
                     </p>
                   </div>
 
                   <div className="p-2.5 bg-bg border border-border rounded-md">
-                    <span className="text-[9px] uppercase font-mono text-text-muted block">Total Paona</span>
-                    <p className="text-sm sm:text-base font-bold font-mono text-text mt-0.5 truncate">
-                      ৳ {finance.totalPaona.toLocaleString()}
+                    <span className="text-[9px] uppercase font-mono text-text-muted block">7D To Receive</span>
+                    <p className="text-xs sm:text-sm font-bold font-mono text-text mt-0.5 truncate">
+                      ৳ {finance.nextSevenDaysToReceiveTotal.toLocaleString()}
                     </p>
                   </div>
                 </div>
 
-                {finance.upcomingDenaList.length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    {finance.upcomingDenaList.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-2 bg-bg border border-border rounded-md flex items-center justify-between text-xs font-mono"
-                      >
-                        <div className="min-w-0 pr-2">
-                          <p className="font-medium text-text truncate">{item.personName}</p>
-                          <span className="text-[10px] text-text-muted">{item.dueDate}</span>
-                        </div>
-                        <span className="font-semibold text-text shrink-0">
-                          ৳ {item.amount.toLocaleString()}
-                        </span>
+                {/* Unified 7-Day Timeline (Show all: To Pay & To Receive) */}
+                {(() => {
+                  const allUpcomingItems = [
+                    ...finance.toPayList.map((item) => ({ ...item, flow: "PAY" as const })),
+                    ...finance.toReceiveList.map((item) => ({ ...item, flow: "RECEIVE" as const })),
+                  ].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+                  if (allUpcomingItems.length === 0) {
+                    return (
+                      <div className="py-6 text-center">
+                        <p className="text-xs font-mono text-text-muted">
+                          No upcoming obligations or collections in the next 7 days 🎉
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                      {allUpcomingItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-2 bg-bg border border-border rounded-md flex items-center justify-between text-xs font-mono"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <div className="p-1 rounded-xs bg-surface border border-border shrink-0">
+                              {item.flow === "PAY" ? (
+                                <ArrowUpRight className="w-3 h-3 text-text" />
+                              ) : (
+                                <ArrowDownLeft className="w-3 h-3 text-text" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-medium text-text truncate">{item.title}</p>
+                                <span className="px-1 py-0.2 text-[9px] font-mono rounded-xs bg-surface text-text-muted border border-border shrink-0">
+                                  {item.source === "MONTHLY_COST"
+                                    ? "Cost"
+                                    : item.source === "DENA"
+                                    ? "Dena"
+                                    : item.source === "INFLOW"
+                                    ? "Inflow"
+                                    : "Paona"}
+                                </span>
+                                {item.isOverdue && (
+                                  <span className="px-1 py-0.2 text-[9px] font-mono rounded-xs bg-red-500/10 text-red-400 border border-red-500/20 shrink-0">
+                                    Overdue
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-text-muted block mt-0.5">{item.dueDate}</span>
+                            </div>
+                          </div>
+                          <span className="font-semibold font-mono shrink-0 text-text">
+                            {item.flow === "PAY" ? "-" : "+"}৳ {item.amount.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
