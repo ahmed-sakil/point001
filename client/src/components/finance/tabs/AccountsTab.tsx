@@ -66,59 +66,75 @@ export const AccountsTab: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {accounts.map((acc) => (
-          <div key={acc.id} className="p-4 bg-surface border border-border rounded-md flex flex-col justify-between space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-md bg-bg border border-border">
-                  {getAccountIcon(acc.accountType)}
+      {accounts.length === 0 ? (
+        <div className="p-8 bg-surface border border-border rounded-md text-center space-y-3">
+          <p className="text-xs font-mono text-text-muted">No accounts yet. Add Cash, Bank, or Mobile Wallet to get started.</p>
+          <button
+            onClick={() => {
+              setEditingAccount(null);
+              setIsAccountModalOpen(true);
+            }}
+            className="interactive-tap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <span>Add Account</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {accounts.map((acc) => (
+            <div key={acc.id} className="p-4 bg-surface border border-border rounded-md flex flex-col justify-between space-y-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-md bg-bg border border-border">
+                    {getAccountIcon(acc.accountType)}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-text leading-tight">{acc.name}</h3>
+                    <span className="text-[10px] font-mono text-text-muted mt-0.5 block">
+                      {acc.accountType} {acc.accountNumber ? `• ${acc.accountNumber}` : ""}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-text leading-tight">{acc.name}</h3>
-                  <span className="text-[10px] font-mono text-text-muted mt-0.5 block">
-                    {acc.accountType} {acc.accountNumber ? `• ${acc.accountNumber}` : ""}
+                {acc.isDefault && (
+                  <span className="px-1.5 py-0.5 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
+                    Default
                   </span>
-                </div>
+                )}
               </div>
-              {acc.isDefault && (
-                <span className="px-1.5 py-0.5 text-[9px] font-mono bg-bg border border-border text-text-muted rounded-xs">
-                  Default
+
+              <div className="pt-2 border-t border-border/60 flex items-baseline justify-between">
+                <span className="text-[10px] font-mono uppercase text-text-muted">Balance</span>
+                <span className="text-lg font-bold font-mono text-text">
+                  {formatCurrency(acc.balance)}
                 </span>
+              </div>
+
+              {isEditMode && (
+                <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border/40">
+                  <button
+                    onClick={() => {
+                      setEditingAccount(acc);
+                      setIsAccountModalOpen(true);
+                    }}
+                    className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                    title="Edit Account"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAccount(acc.id)}
+                    className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                    title="Delete Account"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
             </div>
-
-            <div className="pt-2 border-t border-border/60 flex items-baseline justify-between">
-              <span className="text-[10px] font-mono uppercase text-text-muted">Balance</span>
-              <span className="text-lg font-bold font-mono text-text">
-                {formatCurrency(acc.balance)}
-              </span>
-            </div>
-
-            {isEditMode && (
-              <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border/40">
-                <button
-                  onClick={() => {
-                    setEditingAccount(acc);
-                    setIsAccountModalOpen(true);
-                  }}
-                  className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
-                  title="Edit Account"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDeleteAccount(acc.id)}
-                  className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
-                  title="Delete Account"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

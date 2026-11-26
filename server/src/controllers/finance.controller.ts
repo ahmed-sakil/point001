@@ -51,13 +51,34 @@ export const getFinanceOverview = async (req: AuthenticatedRequest, res: Respons
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     });
 
+interface FormattedDebtItem {
+  id: string;
+  type: string;
+  personName: string;
+  contactNumber: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  dueDate: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  paymentLogs: Array<{
+    id: string;
+    amount: number;
+    date: string;
+    accountId: string | null;
+    notes: string | null;
+  }>;
+}
+
     let totalDena = 0;
     let totalDenaPaid = 0;
     let totalPaona = 0;
     let totalPaonaPaid = 0;
 
-    const denaList: any[] = [];
-    const paonaList: any[] = [];
+    const denaList: FormattedDebtItem[] = [];
+    const paonaList: FormattedDebtItem[] = [];
 
     for (const d of debts) {
       const total = Number(d.totalAmount);

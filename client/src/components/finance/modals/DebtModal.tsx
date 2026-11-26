@@ -11,13 +11,14 @@ export const DebtModal: React.FC = () => {
     editingDebt,
     setEditingDebt,
     handleSaveDebt,
+    isSubmitting,
   } = useFinance();
 
   if (!isDebtModalOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop">
+      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl animate-modal-card">
         <div className="flex items-center justify-between pb-2 border-b border-border">
           <h3 className="text-sm font-semibold font-mono text-text">
             {editingDebt
@@ -65,13 +66,12 @@ export const DebtModal: React.FC = () => {
 
             <div>
               <label className="text-[11px] font-mono text-text-muted block mb-1">
-                {debtModalType === "I_OWE" ? "Payment Due Date *" : "Expected Collection Date *"}
+                {debtModalType === "I_OWE" ? "Payment Due Date (Optional)" : "Expected Collection Date (Optional)"}
               </label>
               <input
                 type="date"
                 name="dueDate"
                 defaultValue={editingDebt?.dueDate || ""}
-                required
                 className="w-full bg-bg border border-border rounded-xs px-3 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-text"
               />
             </div>
@@ -110,9 +110,10 @@ export const DebtModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 disabled:opacity-50"
             >
-              Save Record
+              {isSubmitting ? "Saving..." : "Save Record"}
             </button>
           </div>
         </form>

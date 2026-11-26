@@ -11,8 +11,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
-import { formatCurrency, getMonthDisplayName } from "../types";
+import { formatCurrency, formatDisplayDate, getMonthDisplayName } from "../types";
 import { AnimatedSlideView } from "../../ui/AnimatedSlideView";
+import CheckboxTick from "../../ui/CheckboxTick";
 
 export const MonthlyCostsTab: React.FC = () => {
   const {
@@ -82,10 +83,13 @@ export const MonthlyCostsTab: React.FC = () => {
             </button>
             <button
               onClick={handleCurrentMonth}
-              className="px-2 py-1 text-xs font-mono text-text hover:bg-surface rounded-xs transition-colors whitespace-nowrap"
-              title="Jump to Current Month"
+              className="px-2 py-1 text-xs font-mono text-text hover:bg-surface rounded-xs transition-colors whitespace-nowrap flex items-center gap-1.5"
+              title={selectedMonthYear === new Date().toISOString().slice(0, 7) ? "Current month" : "Jump to Current Month"}
             >
-              {getMonthDisplayName(selectedMonthYear)}
+              {selectedMonthYear === new Date().toISOString().slice(0, 7) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-text inline-block" />
+              )}
+              <span>{getMonthDisplayName(selectedMonthYear)}</span>
             </button>
             <button
               onClick={handleNextMonth}
@@ -136,13 +140,14 @@ export const MonthlyCostsTab: React.FC = () => {
                   className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => handleToggleMonthlyPayment(cost)}
-                      className="interactive-tap w-6 h-6 rounded-md border border-border hover:border-text bg-bg flex items-center justify-center shrink-0 mt-0.5 transition-all"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={false}
+                      onChange={() => handleToggleMonthlyPayment(cost)}
                       title="Mark paid for this month"
-                    >
-                      <span className="w-4 h-4 rounded-full border border-border/90 hover:border-text/60 transition-colors" />
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">
@@ -204,17 +209,18 @@ export const MonthlyCostsTab: React.FC = () => {
                   className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => {
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={false}
+                      onChange={() => {
                         setActiveDebtForPayment(d);
                         setDebtPayAmount(String(d.remainingAmount));
                         setIsDebtPaymentModalOpen(true);
                       }}
-                      className="interactive-tap w-6 h-6 rounded-md border border-border hover:border-text bg-bg flex items-center justify-center shrink-0 mt-0.5 transition-all"
                       title="Record payment for this debt"
-                    >
-                      <span className="w-4 h-4 rounded-full border border-border/90 hover:border-text/60 transition-colors" />
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -223,13 +229,13 @@ export const MonthlyCostsTab: React.FC = () => {
                         </h4>
                         {d.status === "PARTIAL" && (
                           <span className="px-1.5 py-0.2 text-[9px] font-mono bg-surface-hover text-text border border-border rounded-xs">
-                            Partial (৳{d.paidAmount} paid)
+                            Partial ({formatCurrency(d.paidAmount)} paid)
                           </span>
                         )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
-                        <span>Due date: {d.dueDate}</span>
+                        <span>Due date: {formatDisplayDate(d.dueDate)}</span>
                         {d.contactNumber && <span>Phone: {d.contactNumber}</span>}
                         {d.notes && <span>Notes: {d.notes}</span>}
                       </div>
@@ -303,15 +309,14 @@ export const MonthlyCostsTab: React.FC = () => {
                   className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => handleToggleMonthlyPayment(cost)}
-                      className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      onChange={() => handleToggleMonthlyPayment(cost)}
                       title="Click to revert to unpaid and restore account balance"
-                    >
-                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">
@@ -354,22 +359,21 @@ export const MonthlyCostsTab: React.FC = () => {
                   className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
-                      className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      onChange={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
                       title="Click to undo debt payment and restore balance"
-                    >
-                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">
                         Repaid: {p.personName}
                       </h4>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
-                        <span>Paid on: {p.date}</span>
+                        <span>Paid on: {formatDisplayDate(p.date)}</span>
                         <span>Paid from: {p.accountName || "Account"}</span>
                         {p.notes && <span>Notes: {p.notes}</span>}
                       </div>
@@ -386,7 +390,7 @@ export const MonthlyCostsTab: React.FC = () => {
 
                     <button
                       onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
-                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-red-400 hover:bg-bg"
+                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
                       title="Undo payment"
                     >
                       <Undo2 className="w-3.5 h-3.5" />
@@ -402,21 +406,21 @@ export const MonthlyCostsTab: React.FC = () => {
                   className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className="w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      readOnly={true}
                       title="Daily cost logged and paid"
-                    >
-                      <span className="w-4 h-4 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
-                      </span>
-                    </div>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">
                         {cost.title}
                       </h4>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
-                        <span>Logged: {cost.dueDateStr}</span>
+                        <span>Logged: {formatDisplayDate(cost.dueDateStr)}</span>
                         <span>
                           Paid from: {cost.paidFromAccountName || accounts.find((a) => a.id === cost.paidFromAccountId)?.name || "Account"}
                         </span>

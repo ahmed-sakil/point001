@@ -150,3 +150,33 @@ export const getAccountIcon = (type: string) => {
       return React.createElement(Building, { className: "w-4 h-4 text-text" });
   }
 };
+
+export const formatDisplayDate = (dateStr?: string | null): string => {
+  if (!dateStr) return "";
+  try {
+    const parts = dateStr.split("T")[0].split("-").map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const [y, m, d] = parts;
+      const dateObj = new Date(Date.UTC(y, m - 1, d));
+      return dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    }
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return dateStr;
+    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+};
+
+export const formatDebtStatus = (status: string): string => {
+  switch (status) {
+    case "PENDING":
+      return "Pending";
+    case "PARTIAL":
+      return "Partial";
+    case "SETTLED":
+      return "Settled";
+    default:
+      return status;
+  }
+};

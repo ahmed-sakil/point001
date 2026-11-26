@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import ActionDrawer from "../components/ui/ActionDrawer";
+import CheckboxTick from "../components/ui/CheckboxTick";
 
 interface TaskEventItem {
   id: string;
@@ -625,13 +626,15 @@ export const TasksPage: React.FC = () => {
                       {/* Left: Indicator / Checkbox & Info */}
                       <div className="flex items-start gap-3 min-w-0 flex-1">
                         {item.type === "TASK" ? (
-                          <button
-                            onClick={() => completeTask(item.id)}
-                            className="interactive-tap w-4 h-4 rounded-xs border border-border bg-bg hover:border-text flex items-center justify-center shrink-0 mt-0.5 transition-colors"
+                          <CheckboxTick
+                            size="sm"
+                            shape="square"
+                            checked={item.isRemoving || false}
+                            onChange={() => completeTask(item.id)}
+                            title="Mark task done"
                             aria-label="Mark task done"
-                          >
-                            {item.isRemoving && <Check className="w-3 h-3 text-text" />}
-                          </button>
+                            className="mt-0.5"
+                          />
                         ) : (
                           <div className="w-4 h-4 rounded-xs flex items-center justify-center shrink-0 mt-0.5">
                             <span
@@ -756,9 +759,13 @@ export const TasksPage: React.FC = () => {
                   className="p-3.5 bg-surface border border-border rounded-md flex items-start justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="w-4 h-4 rounded-xs border border-border bg-bg flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="w-3 h-3 text-text" />
-                    </div>
+                    <CheckboxTick
+                      size="sm"
+                      shape="square"
+                      checked={true}
+                      readOnly={true}
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-text truncate line-through opacity-75">

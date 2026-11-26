@@ -957,190 +957,139 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid of Settings Cards (Command Center Standard Style) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* CARD 1: PROFILE INFORMATION */}
-        <section
+      {/* Phone-settings style list container */}
+      <div className="bg-surface border border-border rounded-md divide-y divide-border overflow-hidden">
+        {/* ITEM 1: PROFILE */}
+        <div
           onClick={() => navigate("/settings/profile")}
-          className="interactive-tap group p-4 bg-surface border border-border rounded-md hover:border-border/80 flex flex-col justify-between cursor-pointer transition-all duration-200"
+          className="interactive-tap group p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
         >
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            {avatarUrl && !avatarLoadError ? (
+              <img
+                src={avatarUrl}
+                alt={name || "User Avatar"}
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarLoadError(true)}
+                className="w-10 h-10 rounded-full object-cover border border-border shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-md bg-bg border border-border flex items-center justify-center font-mono font-bold text-xs text-text shrink-0">
+                {name || email ? getInitials(name || email) : <UserIcon className="w-4 h-4 text-text" />}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono tracking-wider font-semibold text-text">
+                <h2 className="text-xs font-semibold text-text truncate">
                   Profile Information
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-text-muted">Personal</span>
+              <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
+                {name ? `${name} • ${email}` : "Display name, avatar photo, and security password"}
+              </p>
             </div>
-
-            <div className="flex items-center gap-3 p-3 bg-bg border border-border rounded-md mb-3">
-              {avatarUrl && !avatarLoadError ? (
-                <img
-                  src={avatarUrl}
-                  alt={name || "User Avatar"}
-                  referrerPolicy="no-referrer"
-                  onError={() => setAvatarLoadError(true)}
-                  className="w-10 h-10 rounded-full object-cover border border-border shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center font-mono font-bold text-xs text-text shrink-0">
-                  {getInitials(name || email)}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-text truncate">
-                  {name || "User"}
-                </p>
-                <p className="text-[10px] font-mono text-text-muted truncate mt-0.5">
-                  {email}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-text-muted font-mono leading-relaxed">
-              Manage your display name, profile avatar photo URL, and account security password.
-            </p>
           </div>
 
-          <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
-            <span>Manage Profile</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-bg border border-border text-text-muted">
+              Personal
+            </span>
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text group-hover:translate-x-0.5 transition-all" />
           </div>
-        </section>
+        </div>
 
-        {/* CARD 2: GOOGLE INTEGRATION */}
-        <section
+        {/* ITEM 2: GOOGLE INTEGRATION */}
+        <div
           onClick={() => navigate("/settings/google")}
-          className="interactive-tap group p-4 bg-surface border border-border rounded-md hover:border-border/80 flex flex-col justify-between cursor-pointer transition-all duration-200"
+          className="interactive-tap group p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
         >
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono tracking-wider font-semibold text-text">
-                  Google Integration
-                </h2>
-              </div>
-              {lastSyncAt ? (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text">
-                  Connected
-                </span>
-              ) : (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
-                  Not Connected
-                </span>
-              )}
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-md bg-bg border border-border flex items-center justify-center shrink-0">
+              <Globe className="w-4 h-4 text-text" />
             </div>
-
-            <p className="text-xs text-text-muted font-mono leading-relaxed mb-3">
-              Connect your Google account via OAuth to synchronize your profile picture, display name, and Google Contacts.
-            </p>
-
-            <div className="p-3 bg-bg border border-border rounded-md text-[11px] font-mono space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">Sync Status:</span>
-                <span className="text-text">{lastSyncAt ? "Active" : "Idle"}</span>
-              </div>
-              {lastSyncAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-text-muted">Last Synced:</span>
-                  <span className="text-text">{new Date(lastSyncAt).toLocaleDateString()}</span>
-                </div>
-              )}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs font-semibold text-text truncate">
+                Google Integration
+              </h2>
+              <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
+                Sync Google Contacts, OAuth tokens, and profile data
+              </p>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
-            <span>Configure Integration</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </section>
-
-        {/* CARD 3: MAIL ACCOUNTS (UNIFIED INBOX) */}
-        <section
-          onClick={() => navigate("/settings/mail")}
-          className="interactive-tap group p-4 bg-surface border border-border rounded-md hover:border-border/80 flex flex-col justify-between cursor-pointer transition-all duration-200"
-        >
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono tracking-wider font-semibold text-text">
-                  Mail Accounts
-                </h2>
-              </div>
-              {emailAccounts.length > 0 ? (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text">
-                  {emailAccounts.length} Connected
-                </span>
-              ) : (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
-                  Not Configured
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs text-text-muted font-mono leading-relaxed mb-3">
-              Connect Gmail via 16-digit App Password for background sync, message notifications, and instant read status.
-            </p>
-
-            <div className="p-3 bg-bg border border-border rounded-md text-[11px] font-mono space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">Connected Inboxes:</span>
-                <span className="text-text">{emailAccounts.length}</span>
-              </div>
-              {emailAccounts.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-text-muted">Primary:</span>
-                  <span className="text-text truncate max-w-[140px]">{emailAccounts[0].email}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
-            <span>Manage Accounts</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </section>
-
-        {/* CARD 4: VISUAL & PERSONALIZE */}
-        <section
-          onClick={() => navigate("/settings/personalize")}
-          className="interactive-tap group p-4 bg-surface border border-border rounded-md hover:border-border/80 flex flex-col justify-between cursor-pointer transition-all duration-200"
-        >
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-text" />
-                <h2 className="text-xs uppercase font-mono tracking-wider font-semibold text-text">
-                  Visual & Personalize
-                </h2>
-              </div>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
-                {isWatchPinned ? "Pinned" : "Draggable"}
+          <div className="flex items-center gap-2 shrink-0">
+            {lastSyncAt ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-hover border border-border text-text">
+                Connected
               </span>
+            ) : (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg border border-border text-text-muted">
+                Not Connected
+              </span>
+            )}
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text group-hover:translate-x-0.5 transition-all" />
+          </div>
+        </div>
+
+        {/* ITEM 3: MAIL ACCOUNTS */}
+        <div
+          onClick={() => navigate("/settings/mail")}
+          className="interactive-tap group p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-md bg-bg border border-border flex items-center justify-center shrink-0">
+              <Mail className="w-4 h-4 text-text" />
             </div>
-
-            <p className="text-xs text-text-muted font-mono leading-relaxed mb-3">
-              Customize interface elements, fixed widget placement, and desktop watch positioning.
-            </p>
-
-            <div className="p-3 bg-bg border border-border rounded-md text-[11px] font-mono space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">Floating Watch:</span>
-                <span className="text-text">{isWatchPinned ? "Fixed Bottom-Right" : "Free Draggable"}</span>
-              </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs font-semibold text-text truncate">
+                Mail Accounts
+              </h2>
+              <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
+                App password connection for background sync and unified inbox
+              </p>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-border mt-4 flex items-center justify-between text-xs font-mono text-text-muted group-hover:text-text transition-colors">
-            <span>Manage Personalization</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          <div className="flex items-center gap-2 shrink-0">
+            {emailAccounts.length > 0 ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-hover border border-border text-text">
+                {emailAccounts.length} Connected
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg border border-border text-text-muted">
+                Not Configured
+              </span>
+            )}
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text group-hover:translate-x-0.5 transition-all" />
           </div>
-        </section>
+        </div>
+
+        {/* ITEM 4: VISUAL & PERSONALIZE */}
+        <div
+          onClick={() => navigate("/settings/personalize")}
+          className="interactive-tap group p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-md bg-bg border border-border flex items-center justify-center shrink-0">
+              <Sliders className="w-4 h-4 text-text" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs font-semibold text-text truncate">
+                Visual & Personalize
+              </h2>
+              <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
+                Customize desktop floating watch pin and layout behavior
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg border border-border text-text-muted">
+              {isWatchPinned ? "Pinned" : "Draggable"}
+            </span>
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text group-hover:translate-x-0.5 transition-all" />
+          </div>
+        </div>
       </div>
     </div>
   );

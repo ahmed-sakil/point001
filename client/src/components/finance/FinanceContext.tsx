@@ -21,6 +21,7 @@ interface FinanceContextType {
   expectedInflows: ExpectedInflowItem[];
   savingsVaults: SavingsVaultItem[];
   isLoading: boolean;
+  isSubmitting: boolean;
   isEditMode: boolean;
   setIsEditMode: React.Dispatch<React.SetStateAction<boolean>>;
   activeTab: TabType;
@@ -224,6 +225,7 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
   // Month navigation (e.g. "2026-11")
@@ -529,6 +531,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     try {
+      setIsSubmitting(true);
       if (editingAccount) {
         await api.put(`/finance/accounts/${editingAccount.id}`, payload);
         toast.success("Account updated");
@@ -541,6 +544,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to save account");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -572,6 +577,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      setIsSubmitting(true);
       await api.post("/finance/accounts/transfer", {
         fromAccountId: transferFromId,
         toAccountId: transferToId,
@@ -587,6 +593,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to complete transfer");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -606,6 +614,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     try {
+      setIsSubmitting(true);
       if (editingDebt) {
         await api.put(`/finance/debts/${editingDebt.id}`, payload);
         toast.success("Debt record updated");
@@ -618,6 +627,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to save debt record");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -646,6 +657,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/finance/debts/${activeDebtForPayment.id}/pay`, {
         amount: num,
         accountId: debtPayAccountId || null,
@@ -661,6 +673,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to record payment");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -702,6 +716,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
       try {
+        setIsSubmitting(true);
         await api.post("/finance/quick-transaction", {
           type: "EXPENSE",
           amount,
@@ -716,6 +731,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         fetchFinanceData(selectedMonthYear);
       } catch (error: any) {
         toast.error(error?.response?.data?.error || "Failed to log cost");
+      } finally {
+        setIsSubmitting(false);
       }
       return;
     }
@@ -732,6 +749,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     try {
+      setIsSubmitting(true);
       if (editingMonthlyCost) {
         await api.put(`/finance/monthly-costs/${editingMonthlyCost.id}`, payload);
         toast.success("Monthly cost updated");
@@ -744,6 +762,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to save monthly cost");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -806,6 +826,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/finance/monthly-costs/${activeMonthlyCostForPay.id}/toggle-payment`, {
         monthYear: selectedMonthYear,
         isPaid: true,
@@ -818,6 +839,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to record payment");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -842,6 +865,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     try {
+      setIsSubmitting(true);
       if (editingInflow) {
         await api.put(`/finance/inflows/${editingInflow.id}`, payload);
         toast.success("Expected inflow updated");
@@ -854,6 +878,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to save inflow");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -879,6 +905,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/finance/inflows/${activeInflowForReceive.id}/received`, {
         accountId: receiveAccountId || null,
         amount: recNum,
@@ -890,6 +917,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to mark inflow received");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -919,6 +948,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     try {
+      setIsSubmitting(true);
       if (editingVault) {
         await api.put(`/finance/vaults/${editingVault.id}`, payload);
         toast.success("Savings vault updated");
@@ -931,6 +961,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to save vault");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -959,6 +991,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/finance/vaults/${activeVaultForTransact.id}/transact`, {
         type: vaultTransactType,
         amount: num,
@@ -978,6 +1011,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFinanceData(selectedMonthYear);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to execute vault transaction");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1166,6 +1201,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         expectedInflows,
         savingsVaults,
         isLoading,
+        isSubmitting,
         isEditMode,
         setIsEditMode,
         activeTab,

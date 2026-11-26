@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, PiggyBank } from "lucide-react";
+import { Plus, PiggyBank, Edit3, Trash2 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
 import { formatCurrency } from "../types";
 
@@ -41,8 +41,8 @@ export const SavingsVaultsTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: New Vault (Right Bottom) */}
-        <div className="flex flex-col justify-end items-end gap-3 shrink-0">
+        {/* Right Column: New Vault (Right Top) */}
+        <div className="flex flex-col justify-start items-end gap-3 shrink-0">
           <button
             onClick={() => {
               setEditingVault(null);
@@ -59,10 +59,7 @@ export const SavingsVaultsTab: React.FC = () => {
       {savingsVaults.length === 0 ? (
         <div className="py-12 flex flex-col items-center justify-center text-center bg-surface border border-border rounded-md">
           <PiggyBank className="w-8 h-8 text-text-muted mb-2" />
-          <p className="text-xs font-mono text-text">No savings vaults created yet.</p>
-          <p className="text-[10px] font-mono text-text-muted mt-1">
-            Start stashing money for your dream targets (e.g. PS5, New Phone, Travel).
-          </p>
+          <p className="text-xs font-mono text-text">No savings vaults</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -117,21 +114,23 @@ export const SavingsVaultsTab: React.FC = () => {
               {/* Vault Actions */}
               <div className="pt-2 border-t border-border/60 flex items-center justify-between">
                 {isEditMode ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         setEditingVault(vault);
                         setIsVaultModalOpen(true);
                       }}
-                      className="text-[10px] font-mono text-text-muted hover:text-text"
+                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                      title="Edit Vault"
                     >
-                      Edit
+                      <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDeleteVault(vault.id)}
-                      className="text-[10px] font-mono text-text-muted hover:text-text"
+                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                      title="Delete Vault"
                     >
-                      Delete
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ) : (
@@ -144,7 +143,8 @@ export const SavingsVaultsTab: React.FC = () => {
                       setActiveVaultForTransact(vault);
                       setVaultTransactType("WITHDRAWAL");
                       setVaultTransactAmount("");
-                      setVaultTransactAccountId(accounts[0]?.id || "");
+                      const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                      setVaultTransactAccountId(defaultAcc);
                       setIsVaultTransactModalOpen(true);
                     }}
                     disabled={vault.currentAmount <= 0}
@@ -157,7 +157,8 @@ export const SavingsVaultsTab: React.FC = () => {
                       setActiveVaultForTransact(vault);
                       setVaultTransactType("DEPOSIT");
                       setVaultTransactAmount("");
-                      setVaultTransactAccountId(accounts[0]?.id || "");
+                      const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                      setVaultTransactAccountId(defaultAcc);
                       setIsVaultTransactModalOpen(true);
                     }}
                     className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg font-semibold text-[10px] font-mono hover:opacity-90 transition-opacity"

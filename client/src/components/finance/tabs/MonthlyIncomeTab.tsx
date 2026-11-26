@@ -11,8 +11,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
-import { formatCurrency, getMonthDisplayName } from "../types";
+import { formatCurrency, formatDisplayDate, getMonthDisplayName } from "../types";
 import { AnimatedSlideView } from "../../ui/AnimatedSlideView";
+import CheckboxTick from "../../ui/CheckboxTick";
 
 export const MonthlyIncomeTab: React.FC = () => {
   const {
@@ -86,10 +87,13 @@ export const MonthlyIncomeTab: React.FC = () => {
             </button>
             <button
               onClick={handleCurrentMonth}
-              className="px-2 py-1 text-xs font-mono text-text hover:bg-surface rounded-xs transition-colors whitespace-nowrap"
-              title="Jump to Current Month"
+              className="px-2 py-1 text-xs font-mono text-text hover:bg-surface rounded-xs transition-colors whitespace-nowrap flex items-center gap-1.5"
+              title={selectedMonthYear === new Date().toISOString().slice(0, 7) ? "Current month" : "Jump to Current Month"}
             >
-              {getMonthDisplayName(selectedMonthYear)}
+              {selectedMonthYear === new Date().toISOString().slice(0, 7) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-text inline-block" />
+              )}
+              <span>{getMonthDisplayName(selectedMonthYear)}</span>
             </button>
             <button
               onClick={handleNextMonth}
@@ -137,16 +141,32 @@ export const MonthlyIncomeTab: React.FC = () => {
               {pendingRepeatingIncomes.map((inf) => (
                 <div
                   key={`inf-rep-${inf.id}`}
-                  className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
-                    <span className="text-[10px] font-mono text-text-muted block mt-0.5">
-                      Monthly around {inf.dueDay}th of month
-                    </span>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={false}
+                      onChange={() => {
+                        setActiveInflowForReceive(inf);
+                        const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                        setReceiveAccountId(defaultAcc);
+                        setIsReceiveInflowModalOpen(true);
+                      }}
+                      title="Collect this income"
+                      className="mt-0.5"
+                    />
+
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
+                      <span className="text-[10px] font-mono text-text-muted block mt-0.5">
+                        Monthly around {inf.dueDay}th of month
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
                     <span className="text-sm font-mono font-bold text-text">
                       {formatCurrency(inf.amount)}
                     </span>
@@ -155,7 +175,8 @@ export const MonthlyIncomeTab: React.FC = () => {
                       <button
                         onClick={() => {
                           setActiveInflowForReceive(inf);
-                          setReceiveAccountId(accounts[0]?.id || "");
+                          const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                          setReceiveAccountId(defaultAcc);
                           setIsReceiveInflowModalOpen(true);
                         }}
                         className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
@@ -194,16 +215,32 @@ export const MonthlyIncomeTab: React.FC = () => {
               {pendingOneTimeIncomes.map((inf) => (
                 <div
                   key={`inf-onetime-${inf.id}`}
-                  className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
-                    <span className="text-[10px] font-mono text-text-muted block mt-0.5">
-                      Expected date: {inf.expectedDateStr || "Pending"}
-                    </span>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={false}
+                      onChange={() => {
+                        setActiveInflowForReceive(inf);
+                        const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                        setReceiveAccountId(defaultAcc);
+                        setIsReceiveInflowModalOpen(true);
+                      }}
+                      title="Collect this income"
+                      className="mt-0.5"
+                    />
+
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
+                      <span className="text-[10px] font-mono text-text-muted block mt-0.5">
+                        Expected date: {formatDisplayDate(inf.expectedDateStr) || "Pending"}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
                     <span className="text-sm font-mono font-bold text-text">
                       {formatCurrency(inf.amount)}
                     </span>
@@ -212,7 +249,8 @@ export const MonthlyIncomeTab: React.FC = () => {
                       <button
                         onClick={() => {
                           setActiveInflowForReceive(inf);
-                          setReceiveAccountId(accounts[0]?.id || "");
+                          const defaultAcc = accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
+                          setReceiveAccountId(defaultAcc);
                           setIsReceiveInflowModalOpen(true);
                         }}
                         className="interactive-tap px-2.5 py-1 rounded-xs bg-text text-bg text-[10px] font-mono font-semibold hover:opacity-90 transition-opacity"
@@ -251,26 +289,41 @@ export const MonthlyIncomeTab: React.FC = () => {
               {pendingPaonaThisMonth.map((p) => (
                 <div
                   key={`paona-${p.id}`}
-                  className="p-3.5 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3 bg-surface border border-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-semibold text-text truncate">{p.personName}</h4>
-                      {p.status === "PARTIAL" && (
-                        <span className="px-1.5 py-0.2 text-[9px] font-mono bg-surface-hover text-text border border-border rounded-xs">
-                          Partial (৳{p.paidAmount} collected)
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={false}
+                      onChange={() => {
+                        setActiveDebtForPayment(p);
+                        setDebtPayAmount(String(p.remainingAmount));
+                        setIsDebtPaymentModalOpen(true);
+                      }}
+                      title="Collect payment for this debt"
+                      className="mt-0.5"
+                    />
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
-                      <span>Due date: {p.dueDate}</span>
-                      {p.contactNumber && <span>Phone: {p.contactNumber}</span>}
-                      {p.notes && <span>Notes: {p.notes}</span>}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-semibold text-text truncate">{p.personName}</h4>
+                        {p.status === "PARTIAL" && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-mono bg-surface-hover text-text border border-border rounded-xs">
+                            Partial ({formatCurrency(p.paidAmount)} collected)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
+                        <span>Due date: {formatDisplayDate(p.dueDate)}</span>
+                        {p.contactNumber && <span>Phone: {p.contactNumber}</span>}
+                        {p.notes && <span>Notes: {p.notes}</span>}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-9 sm:pl-0">
                     <div className="text-right">
                       <span className="text-sm font-mono font-bold text-text block">
                         {formatCurrency(p.remainingAmount)}
@@ -337,15 +390,14 @@ export const MonthlyIncomeTab: React.FC = () => {
                   className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => handleRevertInflow(inf.id)}
-                      className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      onChange={() => handleRevertInflow(inf.id)}
                       title="Click to revert to pending and deduct balance"
-                    >
-                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
@@ -384,14 +436,14 @@ export const MonthlyIncomeTab: React.FC = () => {
                   className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className="w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      readOnly={true}
                       title="Inflow received and deposited"
-                    >
-                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
-                      </span>
-                    </div>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">{inf.title}</h4>
@@ -443,22 +495,21 @@ export const MonthlyIncomeTab: React.FC = () => {
                   className="p-3 bg-surface border border-border/70 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
-                      className="interactive-tap w-6 h-6 rounded-md border border-text bg-surface flex items-center justify-center shrink-0 mt-0.5"
+                    <CheckboxTick
+                      size="md"
+                      shape="square"
+                      checked={true}
+                      onChange={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
                       title="Click to undo collection and deduct balance"
-                    >
-                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    </button>
+                      className="mt-0.5"
+                    />
 
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-text truncate">
                         Collected: {p.personName}
                       </h4>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-muted mt-0.5">
-                        <span>Collected on: {p.date}</span>
+                        <span>Collected on: {formatDisplayDate(p.date)}</span>
                         <span>Deposited to: {p.accountName || "Account"}</span>
                         {p.notes && <span>Notes: {p.notes}</span>}
                       </div>
@@ -475,7 +526,7 @@ export const MonthlyIncomeTab: React.FC = () => {
 
                     <button
                       onClick={() => handleDeleteDebtPaymentLog(p.debtId, p.paymentId)}
-                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-red-400 hover:bg-bg"
+                      className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
                       title="Undo collection"
                     >
                       <Undo2 className="w-3.5 h-3.5" />

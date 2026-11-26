@@ -459,7 +459,6 @@ export const CommandCenter: React.FC = () => {
                   5 Waqt Namaj
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-text-muted">Today</span>
             </div>
 
             {prayers.length === 0 ? (
@@ -491,7 +490,7 @@ export const CommandCenter: React.FC = () => {
                     </div>
 
                     <CheckboxTick
-                      shape="circle"
+                      shape="square"
                       size="sm"
                       checked={prayer.isDone}
                       isLocked={isTodayLocked}
@@ -518,7 +517,6 @@ export const CommandCenter: React.FC = () => {
                   Daily Habits
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-text-muted">Today</span>
             </div>
 
             {habits.length === 0 ? (
@@ -545,7 +543,7 @@ export const CommandCenter: React.FC = () => {
                     </p>
 
                     <CheckboxTick
-                      shape="circle"
+                      shape="square"
                       size="sm"
                       checked={habit.isDone}
                       isLocked={isTodayLocked}

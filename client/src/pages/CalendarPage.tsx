@@ -5,7 +5,6 @@ import {
   RotateCcw,
   Lock,
   Unlock,
-  Check,
   CheckSquare,
   Calendar as CalendarIcon,
   Plus,
@@ -17,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import AnimatedSlideView from "../components/ui/AnimatedSlideView";
+import CheckboxTick from "../components/ui/CheckboxTick";
 
 interface CalendarTask {
   id: string;
@@ -678,20 +678,16 @@ export const CalendarPage: React.FC = () => {
                         className="p-3 bg-bg border border-border rounded-md flex items-start justify-between gap-3"
                       >
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                          {/* If day is locked, checkbox is disabled */}
-                          <button
-                            type="button"
-                            disabled={selectedDay.isLocked}
-                            onClick={() => handleToggleTask(t.id)}
-                            className={`interactive-tap w-4 h-4 rounded-xs border border-border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                              selectedDay.isLocked
-                                ? "opacity-50 cursor-not-allowed bg-surface"
-                                : "hover:border-text bg-bg"
-                            }`}
+                          <CheckboxTick
+                            size="sm"
+                            shape="square"
+                            checked={t.isCompleted}
+                            isLocked={selectedDay.isLocked}
+                            onChange={() => handleToggleTask(t.id)}
+                            title={selectedDay.isLocked ? "Day is locked from Calendar" : "Toggle task"}
                             aria-label="Toggle task"
-                          >
-                            {t.isCompleted && <Check className="w-3 h-3 text-text" />}
-                          </button>
+                            className="mt-0.5"
+                          />
 
                           <div className="min-w-0 flex-1">
                             <p

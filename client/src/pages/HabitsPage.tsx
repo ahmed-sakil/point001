@@ -669,11 +669,11 @@ export const HabitsPage: React.FC = () => {
                               <button
                                 onClick={() => handleTogglePrayer(d.dateStr, prayer.key)}
                                 disabled={isLocked}
-                                className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all ${
+                                className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all duration-150 active:scale-90 ${
                                   isLocked
                                     ? "opacity-30 cursor-not-allowed border-border bg-bg"
                                     : isDone
-                                    ? "border-text bg-surface"
+                                    ? "border-border bg-surface hover:border-text group"
                                     : "border-border/80 hover:border-text bg-bg group"
                                 }`}
                                 title={isLocked ? "Day is locked from Calendar" : `${prayer.name} on ${d.dateStr}`}
@@ -681,11 +681,11 @@ export const HabitsPage: React.FC = () => {
                                 {isLocked ? (
                                   <Lock className="w-3.5 h-3.5 text-text-muted" />
                                 ) : isDone ? (
-                                  <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                                    <Check className="w-3 h-3 stroke-[3]" />
+                                  <span className="w-4 h-4 rounded-[2px] bg-text text-bg flex items-center justify-center animate-check-pop">
+                                    <Check className="w-2.5 h-2.5 stroke-[3]" />
                                   </span>
                                 ) : (
-                                  <span className="w-4 h-4 rounded-full border border-border/90 group-hover:border-text/60 transition-colors" />
+                                  <span className="w-3.5 h-3.5 rounded-[1.5px] border border-transparent group-hover:border-border/80 transition-colors" />
                                 )}
                               </button>
                             </div>
@@ -751,11 +751,11 @@ export const HabitsPage: React.FC = () => {
                                   <button
                                     onClick={() => handleToggleHabit(habit.id, d.dateStr, false)}
                                     disabled={isLocked}
-                                    className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all ${
+                                    className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all duration-150 active:scale-90 ${
                                       isLocked
                                         ? "opacity-30 cursor-not-allowed border-border bg-bg"
                                         : isDone
-                                        ? "border-text bg-surface"
+                                        ? "border-border bg-surface hover:border-text group"
                                         : "border-border/80 hover:border-text bg-bg group"
                                     }`}
                                     title={isLocked ? "Day is locked from Calendar" : `${habit.name} on ${d.dateStr}`}
@@ -763,11 +763,11 @@ export const HabitsPage: React.FC = () => {
                                     {isLocked ? (
                                       <Lock className="w-3.5 h-3.5 text-text-muted" />
                                     ) : isDone ? (
-                                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      <span className="w-4 h-4 rounded-[2px] bg-text text-bg flex items-center justify-center animate-check-pop">
+                                        <Check className="w-2.5 h-2.5 stroke-[3]" />
                                       </span>
                                     ) : (
-                                      <span className="w-4 h-4 rounded-full border border-border/90 group-hover:border-text/60 transition-colors" />
+                                      <span className="w-3.5 h-3.5 rounded-[1.5px] border border-transparent group-hover:border-border/80 transition-colors" />
                                     )}
                                   </button>
                                 )}
@@ -872,11 +872,11 @@ export const HabitsPage: React.FC = () => {
                                   <button
                                     onClick={() => handleToggleHabit(challenge.id, d.dateStr, true)}
                                     disabled={isLocked}
-                                    className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all ${
+                                    className={`w-8 h-8 mx-auto rounded-md border flex items-center justify-center transition-all duration-150 active:scale-90 ${
                                       isLocked
                                         ? "opacity-30 cursor-not-allowed border-border bg-bg"
                                         : isDone
-                                        ? "border-text bg-surface"
+                                        ? "border-border bg-surface hover:border-text group"
                                         : "border-border/80 hover:border-text bg-bg group"
                                     }`}
                                     title={isLocked ? "Day is locked from Calendar" : `${challenge.name} on ${d.dateStr}`}
@@ -884,11 +884,11 @@ export const HabitsPage: React.FC = () => {
                                     {isLocked ? (
                                       <Lock className="w-3.5 h-3.5 text-text-muted" />
                                     ) : isDone ? (
-                                      <span className="w-4.5 h-4.5 rounded-full bg-text text-bg flex items-center justify-center animate-check-pop">
-                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      <span className="w-4 h-4 rounded-[2px] bg-text text-bg flex items-center justify-center animate-check-pop">
+                                        <Check className="w-2.5 h-2.5 stroke-[3]" />
                                       </span>
                                     ) : (
-                                      <span className="w-4 h-4 rounded-full border border-border/90 group-hover:border-text/60 transition-colors" />
+                                      <span className="w-3.5 h-3.5 rounded-[1.5px] border border-transparent group-hover:border-border/80 transition-colors" />
                                     )}
                                   </button>
                                 )}

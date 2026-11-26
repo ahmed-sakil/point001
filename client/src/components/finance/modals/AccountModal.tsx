@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useFinance } from "../FinanceContext";
+import CheckboxTick from "../../ui/CheckboxTick";
 
 export const AccountModal: React.FC = () => {
   const {
@@ -9,13 +11,20 @@ export const AccountModal: React.FC = () => {
     editingAccount,
     setEditingAccount,
     handleSaveAccount,
+    isSubmitting,
   } = useFinance();
+
+  const [isDefault, setIsDefault] = useState(false);
+
+  useEffect(() => {
+    setIsDefault(editingAccount?.isDefault || false);
+  }, [editingAccount, isAccountModalOpen]);
 
   if (!isAccountModalOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
+  return createPortal(
+    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop">
+      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl animate-modal-card">
         <div className="flex items-center justify-between pb-2 border-b border-border">
           <h3 className="text-sm font-semibold font-mono text-text">
             {editingAccount ? "Edit Account" : "Add New Account"}
@@ -84,15 +93,26 @@ export const AccountModal: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
+          <div
+            className="flex items-center gap-2 pt-1 cursor-pointer select-none group"
+            onClick={() => setIsDefault(!isDefault)}
+          >
             <input
               type="checkbox"
               id="isDefault"
               name="isDefault"
-              defaultChecked={editingAccount?.isDefault || false}
-              className="rounded-xs border-border text-text"
+              checked={isDefault}
+              onChange={() => {}}
+              className="hidden"
             />
-            <label htmlFor="isDefault" className="text-xs font-mono text-text">
+            <CheckboxTick
+              size="sm"
+              shape="square"
+              checked={isDefault}
+              onChange={() => setIsDefault(!isDefault)}
+              aria-label="Set as default account"
+            />
+            <label htmlFor="isDefault" className="text-xs font-mono text-text cursor-pointer">
               Set as default account
             </label>
           </div>
@@ -110,13 +130,15 @@ export const AccountModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 disabled:opacity-50"
             >
-              Save Account
+              {isSubmitting ? "Saving..." : "Save Account"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

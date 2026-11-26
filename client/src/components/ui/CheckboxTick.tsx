@@ -3,11 +3,12 @@ import { Check, Lock } from "lucide-react";
 
 export interface CheckboxTickProps {
   checked: boolean;
-  onChange: () => void;
+  onChange?: () => void;
   disabled?: boolean;
   isLocked?: boolean;
+  readOnly?: boolean;
   title?: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   shape?: "square" | "circle";
   className?: string;
   "aria-label"?: string;
@@ -18,47 +19,78 @@ export const CheckboxTick: React.FC<CheckboxTickProps> = ({
   onChange,
   disabled = false,
   isLocked = false,
+  readOnly = false,
   title,
   size = "md",
   shape = "square",
   className = "",
   "aria-label": ariaLabel,
 }) => {
-  const isActionDisabled = disabled || isLocked;
+  const isActionDisabled = disabled || isLocked || readOnly;
 
-  const roundedClass = shape === "circle" ? "rounded-full" : size === "sm" ? "rounded-xs" : "rounded-md";
-  const sizeClass = shape === "circle"
-    ? `${size === "sm" ? "w-4.5 h-4.5" : "w-5 h-5"} ${roundedClass}`
-    : `${size === "sm" ? "w-4 h-4" : "w-5.5 h-5.5"} ${roundedClass}`;
-  const iconSizeClass = size === "sm" ? "w-2.5 h-2.5" : "w-3 h-3";
+  const roundedClass =
+    shape === "circle"
+      ? "rounded-full"
+      : "rounded-[2px]";
+
+  const sizeClass =
+    shape === "circle"
+      ? size === "sm"
+        ? "w-4 h-4"
+        : size === "lg"
+        ? "w-5.5 h-5.5"
+        : "w-4.5 h-4.5"
+      : size === "lg"
+      ? "w-5 h-5"
+      : "w-4 h-4";
+
+  const iconSizeClass = size === "lg" ? "w-3 h-3" : "w-2.5 h-2.5";
+
+  if (readOnly) {
+    return (
+      <div
+        className={`border flex items-center justify-center shrink-0 ${roundedClass} ${sizeClass} ${
+          checked
+            ? "border-text bg-text text-bg shadow-xs"
+            : "border-border/80 bg-bg text-transparent"
+        } ${className}`}
+        title={title}
+        aria-label={ariaLabel || title || "Status"}
+      >
+        {checked && (
+          <Check className={`${iconSizeClass} stroke-[3]`} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        if (!isActionDisabled) onChange();
+        if (!isActionDisabled && onChange) onChange();
       }}
       disabled={isActionDisabled}
       title={title || (isLocked ? "Locked" : checked ? "Mark incomplete" : "Mark complete")}
       aria-label={ariaLabel || title || "Checkbox"}
       aria-checked={checked}
-      className={`interactive-tap border flex items-center justify-center shrink-0 transition-all ${sizeClass} ${
+      className={`group cursor-pointer border flex items-center justify-center shrink-0 transition-all duration-150 active:scale-85 ${roundedClass} ${sizeClass} ${
         isLocked
           ? "opacity-35 cursor-not-allowed border-border bg-bg"
           : checked
-          ? "border-text bg-surface text-text shadow-xs"
-          : "border-border/80 hover:border-text bg-bg text-transparent"
+          ? "border-text bg-text text-bg shadow-xs hover:border-text hover:brightness-105"
+          : "border-border/80 hover:border-text bg-bg text-transparent hover:bg-surface-hover/50"
       } ${className}`}
     >
       {isLocked ? (
-        <Lock className={iconSizeClass + " text-text-muted"} />
+        <Lock className={`${iconSizeClass} text-text-muted`} />
       ) : checked ? (
-        <span className="w-full h-full rounded-[inherit] bg-text text-bg flex items-center justify-center animate-check-pop">
-          <Check className={iconSizeClass + " stroke-[3]"} />
+        <span className="flex items-center justify-center animate-check-pop">
+          <Check className={`${iconSizeClass} stroke-[3]`} />
         </span>
       ) : (
-        <span className="w-3 h-3 rounded-[inherit] border border-transparent hover:border-border transition-colors" />
+        <span className="w-2.5 h-2.5 rounded-[inherit] border border-transparent group-hover:border-border/70 transition-colors" />
       )}
     </button>
   );

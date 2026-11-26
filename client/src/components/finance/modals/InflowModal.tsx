@@ -12,13 +12,14 @@ export const InflowModal: React.FC = () => {
     inflowModalType,
     setInflowModalType,
     handleSaveInflow,
+    isSubmitting,
   } = useFinance();
 
   if (!isInflowModalOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop">
+      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl animate-modal-card">
         <div className="flex items-center justify-between pb-2 border-b border-border">
           <h3 className="text-sm font-semibold font-mono text-text">
             {editingInflow ? "Edit Income" : "New Income"}
@@ -157,9 +158,10 @@ export const InflowModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 disabled:opacity-50"
             >
-              Save Income
+              {isSubmitting ? "Saving..." : "Save Income"}
             </button>
           </div>
         </form>

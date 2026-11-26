@@ -9,11 +9,12 @@ import {
   PiggyBank,
 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
-import { formatCurrency, getAccountIcon } from "../types";
+import { formatCurrency, formatDisplayDate, getAccountIcon } from "../types";
 
 export const OverviewTab: React.FC = () => {
   const {
     data,
+    setActiveTab,
     quickCostStep,
     quickCostAmount,
     setQuickCostAmount,
@@ -115,6 +116,7 @@ export const OverviewTab: React.FC = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleQuickCostStep1();
                   }}
+                  autoFocus
                   placeholder="Enter cost amount"
                   className="w-full bg-bg border border-border rounded-xs px-3 py-2 text-xs font-mono text-text placeholder:text-text-muted focus:outline-none focus:border-text"
                 />
@@ -207,6 +209,7 @@ export const OverviewTab: React.FC = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleQuickAddStep1();
                   }}
+                  autoFocus
                   placeholder="Enter income amount"
                   className="w-full bg-bg border border-border rounded-xs px-3 py-2 text-xs font-mono text-text placeholder:text-text-muted focus:outline-none focus:border-text"
                 />
@@ -348,13 +351,7 @@ export const OverviewTab: React.FC = () => {
                       <p className={`text-xs font-medium truncate ${cost.isPaid ? "line-through text-text-muted" : "text-text"}`}>
                         {cost.title}
                       </p>
-                      <span
-                        className={`px-1.5 py-0.2 text-[9px] font-mono rounded-xs ${
-                          cost.isQuickCost
-                            ? "bg-text/10 text-text font-semibold border border-border"
-                            : "bg-surface text-text-muted border border-border"
-                        }`}
-                      >
+                      <span className="px-1.5 py-0.2 text-[9px] font-mono rounded-xs bg-surface text-text-muted border border-border">
                         {cost.isQuickCost ? "Daily" : "Repeating"}
                       </span>
                     </div>
@@ -381,6 +378,12 @@ export const OverviewTab: React.FC = () => {
               <ArrowRightLeft className="w-4 h-4 text-text" />
               <h2 className="text-xs font-mono uppercase font-semibold text-text">Dena Paona</h2>
             </div>
+            <button
+              onClick={() => setActiveTab("debts")}
+              className="text-[10px] font-mono text-text-muted hover:text-text transition-colors"
+            >
+              View all →
+            </button>
           </div>
 
           {allUnsettledDebts.length === 0 ? (
@@ -407,7 +410,7 @@ export const OverviewTab: React.FC = () => {
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-text-muted block mt-0.5">
-                      {d.dueDate ? `Due: ${d.dueDate}` : "No due date"}
+                      {d.dueDate ? `Due: ${formatDisplayDate(d.dueDate)}` : "No due date"}
                     </span>
                   </div>
 

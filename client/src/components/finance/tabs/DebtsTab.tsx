@@ -1,7 +1,7 @@
 import React from "react";
-import { ArrowUpRight, ArrowDownLeft, Plus } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Plus, Edit3, Trash2 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
-import { formatCurrency } from "../types";
+import { formatCurrency, formatDebtStatus, formatDisplayDate } from "../types";
 
 export const DebtsTab: React.FC = () => {
   const {
@@ -107,11 +107,11 @@ export const DebtsTab: React.FC = () => {
                               : "bg-surface text-text-muted border border-border"
                           }`}
                         >
-                          {d.status}
+                          {formatDebtStatus(d.status)}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-text-muted block mt-0.5">
-                        {d.dueDate ? `Due on: ${d.dueDate}` : "No specific due date"}
+                        {d.dueDate ? `Due on: ${formatDisplayDate(d.dueDate)}` : "No specific due date"}
                         {d.contactNumber ? ` • ${d.contactNumber}` : ""}
                       </span>
                     </div>
@@ -127,16 +127,21 @@ export const DebtsTab: React.FC = () => {
                   </div>
 
                   {/* Payment progress */}
-                  <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-text rounded-full transition-all"
-                      style={{ width: `${Math.min(100, Math.round((d.paidAmount / d.totalAmount) * 100))}%` }}
-                    />
+                  <div className="space-y-1">
+                    <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-text rounded-full transition-all"
+                        style={{ width: `${Math.min(100, Math.round((d.paidAmount / d.totalAmount) * 100))}%` }}
+                      />
+                    </div>
+                    {d.paidAmount === 0 && d.status !== "SETTLED" && (
+                      <span className="text-[9px] font-mono text-text-muted block">0% paid</span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     {isEditMode ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -144,18 +149,20 @@ export const DebtsTab: React.FC = () => {
                             setDebtModalType("I_OWE");
                             setIsDebtModalOpen(true);
                           }}
-                          className="text-[10px] font-mono text-text-muted hover:text-text"
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                          title="Edit Dena"
                         >
-                          Edit
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteDebt(d.id);
                           }}
-                          className="text-[10px] font-mono text-text-muted hover:text-text"
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                          title="Delete Dena"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ) : (
@@ -219,11 +226,11 @@ export const DebtsTab: React.FC = () => {
                               : "bg-surface text-text-muted border border-border"
                           }`}
                         >
-                          {d.status}
+                          {formatDebtStatus(d.status)}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-text-muted block mt-0.5">
-                        {d.dueDate ? `Expected by: ${d.dueDate}` : "No specific due date"}
+                        {d.dueDate ? `Expected by: ${formatDisplayDate(d.dueDate)}` : "No specific due date"}
                         {d.contactNumber ? ` • ${d.contactNumber}` : ""}
                       </span>
                     </div>
@@ -239,16 +246,21 @@ export const DebtsTab: React.FC = () => {
                   </div>
 
                   {/* Payment progress */}
-                  <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-text rounded-full transition-all"
-                      style={{ width: `${Math.min(100, Math.round((d.paidAmount / d.totalAmount) * 100))}%` }}
-                    />
+                  <div className="space-y-1">
+                    <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-text rounded-full transition-all"
+                        style={{ width: `${Math.min(100, Math.round((d.paidAmount / d.totalAmount) * 100))}%` }}
+                      />
+                    </div>
+                    {d.paidAmount === 0 && d.status !== "SETTLED" && (
+                      <span className="text-[9px] font-mono text-text-muted block">0% paid</span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     {isEditMode ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -256,18 +268,20 @@ export const DebtsTab: React.FC = () => {
                             setDebtModalType("OWES_ME");
                             setIsDebtModalOpen(true);
                           }}
-                          className="text-[10px] font-mono text-text-muted hover:text-text"
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-bg"
+                          title="Edit Paona"
                         >
-                          Edit
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteDebt(d.id);
                           }}
-                          className="text-[10px] font-mono text-text-muted hover:text-text"
+                          className="interactive-tap p-1.5 rounded-xs text-text-muted hover:text-text hover:bg-surface-hover"
+                          title="Delete Paona"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ) : (

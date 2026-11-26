@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useFinance } from "../FinanceContext";
+import { formatCurrency } from "../types";
 
 export const MonthlyCostModal: React.FC = () => {
   const {
@@ -14,13 +15,14 @@ export const MonthlyCostModal: React.FC = () => {
     handleSaveMonthlyCost,
     data,
     accounts,
+    isSubmitting,
   } = useFinance();
 
   if (!isMonthlyCostModalOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-backdrop">
+      <div className="bg-surface border border-border rounded-md w-full max-w-md p-5 space-y-4 shadow-2xl animate-modal-card">
         <div className="flex items-center justify-between pb-2 border-b border-border">
           <h3 className="text-sm font-semibold font-mono text-text">
             {editingMonthlyCost ? "Edit Monthly Cost" : "New Cost"}
@@ -36,7 +38,12 @@ export const MonthlyCostModal: React.FC = () => {
           </button>
         </div>
 
-        {!editingMonthlyCost && (
+        {editingMonthlyCost ? (
+          <div className="flex items-center justify-between px-3 py-1.5 bg-bg border border-border rounded-xs text-xs font-mono text-text">
+            <span className="text-text-muted">Type:</span>
+            <span className="font-semibold">{costModalType === "ONE_TIME" ? "One-time" : "Repeating"}</span>
+          </div>
+        ) : (
           <div className="flex items-center gap-1 p-1 bg-bg border border-border rounded-xs">
             <button
               type="button"
@@ -98,7 +105,7 @@ export const MonthlyCostModal: React.FC = () => {
                 >
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.name} (৳{a.balance})
+                      {a.name} ({formatCurrency(a.balance)})
                     </option>
                   ))}
                 </select>
@@ -158,9 +165,10 @@ export const MonthlyCostModal: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 disabled:opacity-50"
               >
-                Save Cost
+                {isSubmitting ? "Saving..." : "Save Cost"}
               </button>
             </div>
           </form>
@@ -286,9 +294,10 @@ export const MonthlyCostModal: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded-xs bg-text text-bg font-mono text-xs font-semibold hover:opacity-90 disabled:opacity-50"
               >
-                Save Contract
+                {isSubmitting ? "Saving..." : "Save Contract"}
               </button>
             </div>
           </form>

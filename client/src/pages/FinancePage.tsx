@@ -91,7 +91,7 @@ const FinancePageContent: React.FC = () => {
             <span className="text-[10px] uppercase font-mono text-text-muted">Liquid Balance</span>
             <Wallet className="w-3.5 h-3.5 text-text-muted" />
           </div>
-          <p className="text-base font-bold font-mono text-text mt-1.5 truncate">
+          <p className="text-lg font-bold font-mono text-text mt-1.5 truncate">
             {formatCurrency(summary.totalLiquidBalance)}
           </p>
         </div>
@@ -119,23 +119,23 @@ const FinancePageContent: React.FC = () => {
         </div>
 
         {/* Metric 4: Dena (Payables) */}
-        <div className="p-3 bg-surface border border-border rounded-md">
+        <div className={`p-3 bg-surface border rounded-md ${summary.remainingDena > 0 ? "border-text/30" : "border-border"}`}>
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-mono text-text-muted">Dena (Payables)</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-text-muted" />
           </div>
-          <p className="text-base font-bold font-mono text-text mt-1.5 truncate">
+          <p className={`text-base font-mono text-text mt-1.5 truncate ${summary.remainingDena > 0 ? "font-extrabold" : "font-bold"}`}>
             {formatCurrency(summary.remainingDena)}
           </p>
         </div>
 
         {/* Metric 5: Month's Costs Due */}
-        <div className="p-3 bg-surface border border-border rounded-md">
+        <div className={`p-3 bg-surface border rounded-md ${summary.totalMonthlyCostDue > 0 ? "border-text/30" : "border-border"}`}>
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-mono text-text-muted">Month's Cost Due</span>
-            <CalendarIcon className="w-3.5 h-3.5 text-text-muted" />
+            <CalendarIcon className={`w-3.5 h-3.5 ${summary.totalMonthlyCostDue > 0 ? "text-text" : "text-text-muted"}`} />
           </div>
-          <p className="text-base font-bold font-mono text-text mt-1.5 truncate">
+          <p className={`text-base font-mono text-text mt-1.5 truncate ${summary.totalMonthlyCostDue > 0 ? "font-extrabold" : "font-bold"}`}>
             {formatCurrency(summary.totalMonthlyCostDue)}
           </p>
         </div>
@@ -144,7 +144,7 @@ const FinancePageContent: React.FC = () => {
       {/* ------------------------------------------------------------- */}
       {/* 3. SUB-NAVIGATION TABS (CLEAN, NO COUNTERS)                   */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-border scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border scrollbar-none">
         {[
           { key: "overview", label: "Overview" },
           { key: "accounts", label: "Accounts" },
@@ -156,10 +156,10 @@ const FinancePageContent: React.FC = () => {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as TabType)}
-            className={`interactive-tap px-3.5 py-2 text-xs font-mono font-medium rounded-t-md transition-all whitespace-nowrap ${
+            className={`interactive-tap px-3 py-1.5 text-xs font-mono font-medium rounded-xs transition-colors whitespace-nowrap ${
               activeTab === tab.key
-                ? "bg-surface text-text border-t border-l border-r border-border -mb-px"
-                : "text-text-muted hover:text-text hover:bg-surface/40"
+                ? "bg-text text-bg shadow-xs"
+                : "text-text-muted hover:text-text hover:bg-surface"
             }`}
           >
             {tab.label}

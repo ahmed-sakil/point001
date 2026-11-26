@@ -2,7 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, ArrowDownLeft, X, Phone, Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { useFinance } from "../FinanceContext";
-import { formatCurrency } from "../types";
+import { formatCurrency, formatDebtStatus, formatDisplayDate } from "../types";
 
 export const DebtDetailModal: React.FC = () => {
   const {
@@ -22,11 +22,11 @@ export const DebtDetailModal: React.FC = () => {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-modal-backdrop"
       onClick={() => setSelectedDebtForDetail(null)}
     >
       <div
-        className="bg-surface border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto"
+        className="bg-surface border border-border rounded-md max-w-md w-full p-5 space-y-4 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto animate-modal-card"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -53,7 +53,7 @@ export const DebtDetailModal: React.FC = () => {
                       : "bg-surface text-text-muted border border-border"
                   }`}
                 >
-                  {selectedDebtForDetail.status}
+                  {formatDebtStatus(selectedDebtForDetail.status)}
                 </span>
               </div>
               <span className="text-[10px] font-mono text-text-muted block">
@@ -133,13 +133,13 @@ export const DebtDetailModal: React.FC = () => {
               <span>{selectedDebtForDetail.type === "I_OWE" ? "Due Date" : "Expected Date"}</span>
             </span>
             <span className="text-text font-semibold">
-              {selectedDebtForDetail.dueDate || "No specific date"}
+              {formatDisplayDate(selectedDebtForDetail.dueDate) || "No specific date"}
             </span>
           </div>
 
           <div className="flex items-center justify-between py-1.5 border-b border-border/70 text-text-muted">
             <span>Created Date</span>
-            <span className="text-text">{selectedDebtForDetail.createdAt}</span>
+            <span className="text-text">{formatDisplayDate(selectedDebtForDetail.createdAt)}</span>
           </div>
 
           {selectedDebtForDetail.notes && (
@@ -169,11 +169,11 @@ export const DebtDetailModal: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className="text-[10px] text-text-muted">{log.date}</span>
+                    <span className="text-[10px] text-text-muted">{formatDisplayDate(log.date)}</span>
                     <button
                       type="button"
                       onClick={() => handleDeleteDebtPaymentLog(selectedDebtForDetail.id, log.id)}
-                      className="interactive-tap p-1 rounded-xs text-text-muted hover:text-red-400 hover:bg-surface transition-colors"
+                      className="interactive-tap p-1 rounded-xs text-text-muted hover:text-text hover:bg-surface transition-colors"
                       title="Undo this payment and restore balance"
                     >
                       <Trash2 className="w-3 h-3" />

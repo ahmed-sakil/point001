@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import ActionDrawer from "../components/ui/ActionDrawer";
+import CheckboxTick from "../components/ui/CheckboxTick";
 
 interface PhoneNumberItem {
   value: string;
@@ -756,20 +757,20 @@ export const ContactsPage: React.FC = () => {
               </div>
 
               {/* Starred Checkbox */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="modalIsStarred"
+              <div
+                className="flex items-center gap-2 pt-1 cursor-pointer select-none group"
+                onClick={() => setFormIsStarred(!formIsStarred)}
+              >
+                <CheckboxTick
+                  size="sm"
+                  shape="square"
                   checked={formIsStarred}
-                  onChange={(e) => setFormIsStarred(e.target.checked)}
-                  className="rounded border-border text-text focus:ring-0 bg-bg cursor-pointer"
+                  onChange={() => setFormIsStarred(!formIsStarred)}
+                  aria-label="Star this contact"
                 />
-                <label
-                  htmlFor="modalIsStarred"
-                  className="text-xs font-mono text-text cursor-pointer flex items-center gap-1"
-                >
+                <span className="text-xs font-mono text-text cursor-pointer flex items-center gap-1">
                   <Star className="w-3.5 h-3.5 text-text" /> Star this contact
-                </label>
+                </span>
               </div>
 
               {/* Actions */}
